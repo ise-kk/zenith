@@ -38,6 +38,8 @@ export function createAR(deps) {
   let target = null; // smoothed toward
   let look = { alt: 35, az: 180 }; // manual mode
   let wake = null;
+  let userOffset = (() => { try { return +localStorage.getItem('zenith.azfix') || 0; } catch (e) { return 0; } })();
+  function calNeeded(on) { const el = $('ar-cal'); if (el) el.hidden = !on; }
 
   function resize() {
     DPR = Math.min(devicePixelRatio || 1, 2);
@@ -50,15 +52,21 @@ export function createAR(deps) {
     if (e.alpha == null || e.beta == null || e.gamma == null) return;
     let alpha = e.alpha;
     if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) {
-      // iOS: alpha has an arbitrary zero; the compass heading ties it to magnetic north.
+      // iOS: alpha has an arbitrary (but fixed) zero, so one constant offset ties it to north.
+      // webkitCompassHeading is only trustworthy while the phone is tilted like when reading it
+      // (top edge and camera point the same way). Once the phone leans back past vertical to look
+      // at the sky, iOS switches its reference and the value can jump by 180°, so we freeze the
+      // offset outside that pose instead of chasing it.
       compassAcc = e.webkitCompassAccuracy;
+      const good = e.beta > 10 && e.beta < 80 && Math.abs(e.gamma) < 25 && !(compassAcc > 30 || compassAcc < 0);
       const off = ((360 - e.webkitCompassHeading) - alpha + 720) % 360;
-      if (headingOffset == null) headingOffset = off;
-      else { const d = ((off - headingOffset + 540) % 360) - 180; headingOffset = (headingOffset + d * 0.05 + 360) % 360; }
+      if (headingOffset == null) { if (!good) { calNeeded(true); return; } headingOffset = off; calNeeded(false); }
+      else if (good) { const d = ((off - headingOffset + 540) % 360) - 180; if (Math.abs(d) < 45) headingOffset = (headingOffset + d * 0.1 + 360) % 360; }
       alpha = alpha + headingOffset;
     } else if (!absolute) {
       return; // relative-only alpha without a compass cannot be tied to north
     }
+    alpha = alpha + userOffset; // manual fine-tune (horizontal drag follows the finger)
     // magnetic -> true north
     alpha = alpha - declinationJapan(st.place.lat, st.place.lon);
     const b = basisFromEuler(alpha, e.beta, e.gamma);
@@ -93,12 +101,16 @@ export function createAR(deps) {
   cv.addEventListener('pointermove', e => {
     if (!drag || pinch) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
-    if (sensor) return;
     const k = fov / H;
+    if (sensor) { // sensors drive the view; a horizontal drag nudges the compass by hand
+      if (Math.abs(dx) > Math.abs(dy)) { userOffset = ((drag.fix ?? (drag.fix = userOffset)) + dx * k + 540) % 360 - 180; showFix(); }
+      return;
+    }
     look.az = (drag.az - dx * k + 360) % 360;
     look.alt = Math.max(-10, Math.min(90, drag.alt + dy * k));
   });
   cv.addEventListener('pointerup', e => {
+    if (drag && drag.fix != null) { try { localStorage.setItem('zenith.azfix', String(userOffset)); } catch (er) { } }
     if (drag && drag.moved < 6) tap(e.clientX, e.clientY);
     drag = null;
   });
@@ -334,6 +346,7 @@ export function createAR(deps) {
     }
   }
 
+  function showFix() { const n = $('ar-fov'); n.textContent = `方位の補正 ${userOffset >= 0 ? '+' : ''}${userOffset.toFixed(1)}° · 月や明るい星に合わせて左右にずらす`; n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, 2500); }
   function hint(t) { const h = $('ar-hint'); h.textContent = t; h.hidden = !t; clearTimeout(hint.t); if (t) hint.t = setTimeout(() => { h.hidden = true; }, 5000); }
 
   function frame() { if (!on) return; draw(); raf = requestAnimationFrame(frame); }
@@ -350,7 +363,7 @@ export function createAR(deps) {
     cameraOff();
     on = false; root.hidden = true; document.body.classList.remove('ar-on'); cancelAnimationFrame(raf);
     removeEventListener('deviceorientationabsolute', onAbs); removeEventListener('deviceorientation', onRel);
-    sensor = false; headingOffset = null;
+    sensor = false; headingOffset = null; calNeeded(false);
     try { wake && wake.release(); } catch (e) { } wake = null;
   }
   $('ar-perm').addEventListener('click', enableSensors);
