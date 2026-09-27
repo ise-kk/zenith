@@ -845,6 +845,13 @@ $('geo').addEventListener('click', () => {
     sel.value = 'here'; msg.textContent = ''; computeNight();
   }, () => { $('geo').disabled = false; msg.textContent = '現在地を取得できませんでした（この画面では使えないか、許可されていません）'; $('custom').hidden = false; }, { timeout: 10000, maximumAge: 600000 });
 });
+// collapsible panels: closed by default on phones, remembered per viewer
+document.querySelectorAll('details.fold').forEach(d => {
+  const key = 'fold.' + d.dataset.fold;
+  const saved = store.get(key, null);
+  d.open = saved == null ? !matchMedia('(max-width: 980px)').matches : saved;
+  d.addEventListener('toggle', () => store.set(key, d.open));
+});
 function boot() {
   resize();
   loadStoredTLE();
