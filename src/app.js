@@ -823,7 +823,8 @@ function renderCard() {
 setInterval(() => { if (st.focusCon) renderCard(); }, 5000);
 
 // ---------- かざすモード ----------
-const ar = createAR({ $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, SKIES });
+const ar = createAR({ $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES });
+window.__zen = { st, ar };
 $('t-ar').addEventListener('click', () => ar.open());
 
 // ---------- loop ----------

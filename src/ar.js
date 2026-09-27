@@ -1,6 +1,7 @@
 // "かざすモード": point the phone at the sky. Orientation sensors -> camera basis in
 // local East-North-Up coordinates -> gnomonic (pinhole) projection of the live sky.
 // Without sensors (PC, Claude viewer) the view is dragged by hand.
+import { orbitOf, describeSat } from './satinfo.js';
 const D2R = Math.PI / 180;
 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -25,7 +26,8 @@ function basisFromEuler(a, b, g) {
 }
 
 export function createAR(deps) {
-  const { $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, SKIES } = deps;
+  const { $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES } = deps;
+  let satSel = null, aimObj = null, satPts = [], lastCard = 0;
   const root = $('ar'), cv = $('arc'), ctx = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1, on = false, raf = 0;
   let fov = 62; // vertical field of view, degrees
@@ -124,6 +126,12 @@ export function createAR(deps) {
     return norm(cam.v.map((v, i) => v + (x - W / 2) / f * cam.r[i] - (y - H / 2) / f * cam.u[i]));
   }
   function tap(x, y) {
+    // a satellite under the finger (or under the reticle when tapping near the centre) wins
+    let best = null;
+    for (const q of satPts) { const dd = Math.hypot(q.x - x, q.y - y); if (dd < 34 && (!best || dd < best.d)) best = { d: dd, sat: q.sat }; }
+    if (!best && aimObj && aimObj.sat && Math.hypot(x - W / 2, y - H / 2) < 70) best = { sat: aimObj.sat };
+    if (best) { openSat(best.sat); return; }
+    if (satSel) { closeSat(); return; }
     const d = screenDir(x, y);
     const h = altaz(d);
     const eq = horToEq(new Date(st.t), st.place, h.alt, h.az);
@@ -246,12 +254,14 @@ export function createAR(deps) {
     }
 
     // planets, Moon, Sun
+    const plPts = [];
     ctx.font = '500 13px "Zen Kaku Gothic New", sans-serif';
     for (const pl of S.PLANETS) {
       const h = S.bodyAltAz(pl.body, d, obs); if (h.alt < -1) continue; const p = PA(h.alt, h.az); if (!p) continue;
       const m = A.Illumination(pl.body, d).mag; const rad = Math.max(2, Math.min(6, 3 - m * 0.6)) * zoom;
       ctx.fillStyle = 'rgba(255,236,200,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,226,170,.95)'; ctx.fillText(`${pl.ja} ${mag(m)}等`, p[0] + 10, p[1] + 4);
+      plPts.push({ name: pl.ja, body: pl.body, m, x: p[0], y: p[1] });
     }
     const mh = S.bodyAltAz(A.Body.Moon, d, obs);
     const mp = PA(mh.alt, mh.az);
@@ -272,16 +282,40 @@ export function createAR(deps) {
     }
     if (sun.alt > -1) { const p = PA(sun.alt, sun.az); if (p) { const gg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 60); gg.addColorStop(0, 'rgba(255,245,220,1)'); gg.addColorStop(1, 'rgba(255,220,160,0)'); ctx.fillStyle = gg; ctx.fillRect(p[0] - 60, p[1] - 60, 120, 120); ctx.fillStyle = '#ffd9a0'; ctx.fillText('太陽（直接見ないでください）', p[0] + 20, p[1] + 4); } }
 
-    // satellites now
+    // satellites now: sunlit ones against a dark sky are drawn as stars; the stations always;
+    // everything else above the horizon appears as a faint ring only near the centre, so it can be aimed at
+    satPts = [];
+    const nearC = Math.cos(Math.min(18, fov * 0.3) * D2R);
     for (const sat of st.sats) {
       const lk = S.satLook(sat, d, obs); if (!lk || lk.alt < 0) continue;
       const vis = lk.sunlit && sun.alt < -6 && lk.mag < lm + 0.5;
-      const feat = S.FEATURED[sat.id];
-      if (!vis && !feat) continue;
-      const p = PA(lk.alt, lk.az); if (!p) continue;
+      const feat = S.FEATURED[sat.id], sel = satSel && satSel.id === sat.id;
+      const vec = enu(lk.alt, lk.az);
+      if (!vis && !feat && !sel && dot(vec, cam.v) < nearC) continue;
+      const p = P(vec); if (!p) continue;
       if (vis) { ctx.fillStyle = '#f4f8ff'; ctx.beginPath(); ctx.arc(p[0], p[1], Math.max(2, 3 - lk.mag * 0.6) * zoom, 0, Math.PI * 2); ctx.fill(); }
-      else { ctx.strokeStyle = 'rgba(200,215,240,.6)'; ctx.beginPath(); ctx.arc(p[0], p[1], 5, 0, Math.PI * 2); ctx.stroke(); }
+      else { ctx.strokeStyle = feat || sel ? 'rgba(200,215,240,.7)' : 'rgba(180,200,235,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p[0], p[1], feat || sel ? 5 : 3.5, 0, Math.PI * 2); ctx.stroke(); }
       if (feat) { ctx.fillStyle = '#f2c46d'; ctx.fillText(feat.short + (vis ? ` ${mag(lk.mag)}等` : '（地球の影の中）'), p[0] + 10, p[1] - 8); }
+      satPts.push({ sat, lk, vis, x: p[0], y: p[1] });
+    }
+    // the selected satellite: its path for the next few minutes, with a marker on "now"
+    if (satSel) {
+      ctx.strokeStyle = 'rgba(242,196,109,.8)'; ctx.lineWidth = 1.6; ctx.setLineDash([4, 5]); ctx.beginPath();
+      let prev = null, tip = null;
+      for (let s2 = -120; s2 <= 360; s2 += 15) {
+        const lk2 = S.satLook(satSel, new Date(d.getTime() + s2 * 1000), obs);
+        const q = lk2 && lk2.alt > -2 ? P(enu(lk2.alt, lk2.az)) : null;
+        if (q && prev) { ctx.moveTo(prev[0], prev[1]); ctx.lineTo(q[0], q[1]); }
+        if (s2 === 60) tip = q;
+        prev = q;
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+      const me = satPts.find(q => q.sat.id === satSel.id);
+      if (me) {
+        ctx.strokeStyle = '#f2c46d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(me.x, me.y, 14, 0, Math.PI * 2); ctx.stroke();
+        if (tip) { const an = Math.atan2(tip[1] - me.y, tip[0] - me.x); ctx.save(); ctx.translate(me.x + Math.cos(an) * 22, me.y + Math.sin(an) * 22); ctx.rotate(an); ctx.fillStyle = '#f2c46d'; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -5); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.restore(); }
+      }
+      if (performance.now() - lastCard > 500) { renderSat(d, obs, sun.alt); lastCard = performance.now(); }
     }
 
     // horizon line, ground shade, compass ticks
@@ -311,7 +345,20 @@ export function createAR(deps) {
     const where = `${dir(look.az)} ${Math.round(look.az)}° · 高度 ${Math.round(look.alt)}°`;
     $('ar-where').textContent = where;
     const lab = $('ar-aim');
-    if (aimCon) { const c = DATA.cons.find(c => c.id === aimCon); lab.innerHTML = `<b>${esc(c.ja)}</b><span>タップで詳しく</span>`; }
+    // nearest satellite or planet to the reticle, else the constellation
+    const rad = 40;
+    aimObj = null;
+    for (const q of satPts) { const dd = Math.hypot(q.x - cx, q.y - cy); if (dd < rad && (!aimObj || dd < aimObj.d)) aimObj = { d: dd, sat: q.sat, lk: q.lk, vis: q.vis }; }
+    if (!aimObj) for (const q of plPts) { const dd = Math.hypot(q.x - cx, q.y - cy); if (dd < rad && (!aimObj || dd < aimObj.d)) aimObj = { d: dd, pl: q }; }
+    if (aimObj && aimObj.sat) {
+      const feat = S.FEATURED[aimObj.sat.id], info = describeSat(aimObj.sat, feat);
+      const nm = feat ? feat.short : (info.ja || aimObj.sat.name);
+      const state = aimObj.vis ? `${mag(aimObj.lk.mag)}等で見えています` : !aimObj.lk.sunlit ? '地球の影の中' : '空が明るく見えません';
+      lab.innerHTML = `<b>${esc(nm)}</b><span>${esc(info.kind)} · 高度${Math.round(aimObj.lk.height)}km · ${state}</span><span>タップで詳しく</span>`;
+    } else if (aimObj && aimObj.pl) {
+      const km = A.GeoVector(aimObj.pl.body, d, true).Length() * A.KM_PER_AU;
+      lab.innerHTML = `<b>${esc(aimObj.pl.name)}</b><span>${mag(aimObj.pl.m)}等 · 地球から${km >= 1e8 ? (km / 1e8).toFixed(1) + '億' : Math.round(km / 1e4) + '万'}km · 光で${km / 299792.458 >= 3600 ? Math.floor(km / 299792.458 / 3600) + '時間' + Math.round(km / 299792.458 % 3600 / 60) + '分' : Math.round(km / 299792.458 / 60) + '分'}</span>`;
+    } else if (aimCon) { const c = DATA.cons.find(c => c.id === aimCon); lab.innerHTML = `<b>${esc(c.ja)}</b><span>タップで詳しく</span>`; }
     else lab.innerHTML = '';
     const acc = compassAcc;
     $('ar-acc').hidden = !(sensor && typeof acc === 'number' && (acc < 0 || acc > 20));
@@ -346,6 +393,51 @@ export function createAR(deps) {
     }
   }
 
+  // ---------- satellite card ----------
+  function openSat(sat) {
+    satSel = sat; lastCard = 0;
+    const c = $('card'); if (c) c.hidden = true; st.focusCon = null;
+    $('ar-sat').hidden = false; root.classList.add('sat-open'); renderSat(new Date(st.t), st.place, S.bodyAltAz(A.Body.Sun, new Date(st.t), st.place).alt);
+  }
+  function closeSat() { satSel = null; $('ar-sat').hidden = true; root.classList.remove('sat-open'); }
+  function renderSat(d, obs, sunAlt) {
+    const sat = satSel; if (!sat) return;
+    const feat = S.FEATURED[sat.id], info = describeSat(sat, feat), o = orbitOf(sat);
+    const lk = S.satLook(sat, d, obs);
+    const up = lk && lk.alt >= 0;
+    let state;
+    if (!up) state = '地平線の下';
+    else if (!lk.sunlit) state = '地球の影の中（いまは見えません）';
+    else if (sunAlt > -6) state = '空が明るく、いまは見えません';
+    else state = `<b>${mag(lk.mag)}等</b>で見えています`;
+    const now = d.getTime();
+    const cur = st.passes.find(p => p.sat.id === sat.id && p.start.t <= now && p.end.t >= now);
+    const nx = st.passes.find(p => p.sat.id === sat.id && p.start.t > now);
+    const age = (now - sat.epoch.getTime()) / 864e5;
+    const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+    $('ar-sat-kind').textContent = info.kind;
+    $('ar-sat-name').textContent = feat ? feat.ja : (info.ja || sat.name);
+    $('ar-sat-raw').textContent = `${feat || info.ja ? sat.name + ' · ' : ''}NORAD ${sat.id}${o.cospar ? ' · 国際標識 ' + o.cospar : ''}`;
+    $('ar-sat-note').textContent = info.note;
+    $('ar-sat-note').hidden = !info.note;
+    $('ar-sat-now').innerHTML = up
+      ? `いま <b>${dir(lk.az)}の空、高度${Math.round(lk.alt)}°</b> · ${state}`
+      : `いまは${state}です`;
+    $('ar-sat-facts').innerHTML = [
+      lk ? row('地上からの高さ', `${Math.round(lk.height).toLocaleString()} km`) : '',
+      lk && up ? row('ここからの距離', `${Math.round(lk.range).toLocaleString()} km`) : '',
+      row('速さ', `秒速${o.speed.toFixed(1)} km（時速約${(Math.round(o.speed * 36) * 100).toLocaleString()} km）`),
+      row('地球を1周', `${o.period.toFixed(1)} 分（1日に${o.revs.toFixed(1)}周）`),
+      row('軌道の高さ', Math.abs(o.apogee - o.perigee) < 30 ? `約${Math.round((o.apogee + o.perigee) / 2)} km` : `${Math.round(o.perigee)}〜${Math.round(o.apogee)} km`),
+      row('軌道の傾き', `${o.inc.toFixed(1)}°`),
+      o.launchYear ? row('打ち上げ', `${o.launchYear}年`) : '',
+      cur ? row('いまの通過', `${hm(new Date(cur.end.t))}まで · ${dir(cur.end.az)}へ${cur.end.alt > 12 ? '（地球の影に入って消える）' : ''}`) : '',
+      row('次に見える通過', nx ? `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))} ${dir(nx.start.az)}から · 最大${Math.round(nx.max.alt)}° · ${mag(nx.mag)}等` : '予報の範囲にはありません'),
+      row('軌道データ', `${age < 1 ? Math.max(1, Math.round(age * 24)) + '時間' : age.toFixed(1) + '日'}前のもの`),
+    ].join('');
+  }
+  $('ar-sat-close').addEventListener('click', closeSat);
+
   function showFix() { const n = $('ar-fov'); n.textContent = `方位の補正 ${userOffset >= 0 ? '+' : ''}${userOffset.toFixed(1)}° · 月や明るい星に合わせて左右にずらす`; n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, 2500); }
   function hint(t) { const h = $('ar-hint'); h.textContent = t; h.hidden = !t; clearTimeout(hint.t); if (t) hint.t = setTimeout(() => { h.hidden = true; }, 5000); }
 
@@ -360,7 +452,7 @@ export function createAR(deps) {
     try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; }
   }
   function close() {
-    cameraOff();
+    cameraOff(); closeSat();
     on = false; root.hidden = true; document.body.classList.remove('ar-on'); cancelAnimationFrame(raf);
     removeEventListener('deviceorientationabsolute', onAbs); removeEventListener('deviceorientation', onRel);
     sensor = false; headingOffset = null; calNeeded(false);
@@ -392,5 +484,5 @@ export function createAR(deps) {
   $('ar-red').addEventListener('click', () => { const r = root.classList.toggle('red'); $('ar-red').setAttribute('aria-pressed', String(r)); });
   addEventListener('resize', () => { if (on) resize(); });
   document.addEventListener('visibilitychange', async () => { if (on && document.visibilityState === 'visible' && navigator.wakeLock) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { } } });
-  return { open, close, isOn: () => on };
+  return { open, close, isOn: () => on, _look: (alt, az) => { look = { alt, az }; } };
 }
