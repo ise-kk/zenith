@@ -489,6 +489,14 @@ async function computePasses() {
   st.computing = true; renderTonight();
   const t0 = new Date(Math.max(st.win.sunset.getTime(), (st.live ? Date.now() : st.t) - 15 * 60e3));
   st.passes = await S.findPasses(st.sats, t0, st.win.sunrise, st.place, (k) => { $('calc').textContent = `通過を計算中 ${(k * 100) | 0}%`; });
+  // next space-station passes over the coming 5 days (for when none remain tonight)
+  const stations = st.sats.filter(x => S.FEATURED[x.id]);
+  st.nextStation = null;
+  if (stations.length) {
+    const from = new Date(Math.max(Date.now(), st.win.sunrise.getTime()));
+    const more = await S.findPasses(stations, from, new Date(from.getTime() + 5 * 864e5), st.place);
+    st.nextStation = more.find(p => p.mag < 2) || more[0] || null;
+  }
   st.computing = false;
   renderTonight();
 }
@@ -496,7 +504,10 @@ async function computePasses() {
 function renderTonight() {
   const w = st.win; if (!w) return;
   $('night-date').textContent = `${md(w.sunset)} の夜 · ${st.place.ja}`;
-  const vis = st.passes.filter(p => p.mag < SKIES[st.sky].lm - 0.5);
+  const visAll = st.passes.filter(p => p.mag < SKIES[st.sky].lm - 0.5);
+  // keep the list calm: space stations always, other satellites only when easy to see
+  const vis = visAll.filter(p => S.FEATURED[p.sat.id] || p.mag < 3);
+  const faint = visAll.length - vis.length;
   const items = [
     ...st.events.map(e => ({ ...e, type: 'ev' })),
     ...vis.map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
@@ -508,8 +519,11 @@ function renderTonight() {
   let head;
   if (!st.sats.length) head = '今夜の空を計算しました。<br>軌道データを入れると、宇宙ステーションの通過も表示されます。';
   else if (nextF) head = `${hm(new Date(nextF.start.t))}、${esc(S.FEATURED[nextF.sat.id].short)}が<br>${dir(nextF.start.az)}の空から現れます。`;
-  else if (vis.length) head = `今夜は人工衛星の通過が${vis.length}回見られます。<br>宇宙ステーションの通過はありません。`;
-  else head = '今夜、肉眼で見える<br>人工衛星の通過はありません。';
+  else {
+    const n = st.nextStation;
+    const nextTxt = n ? `次は${md(new Date(n.start.t))} ${hm(new Date(n.start.t))}、${esc(S.FEATURED[n.sat.id].short)}が${dir(n.start.az)}の空に（最大${n.max.alt.toFixed(0)}°・${mag(n.mag)}等）。` : '';
+    head = `今夜これからの宇宙ステーションの通過はありません。${nextTxt ? '<br><span class="head-sub">' + nextTxt + '</span>' : ''}`;
+  }
   $('headline').innerHTML = head;
 
   $('calc').hidden = !st.computing;
@@ -525,6 +539,7 @@ function renderTonight() {
     markActive(b);
   }));
   $('tonight').querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); }));
+  $('faint-note').textContent = faint > 0 ? `ほかに、双眼鏡向けの暗い人工衛星の通過が${faint}回あります（3等より暗いもの）。` : '';
   renderScrubTicks(items);
 }
 function titleCase(s) { return s.replace(/\s+/g, ' ').trim(); }
