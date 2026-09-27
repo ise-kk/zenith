@@ -108,6 +108,14 @@ aside{grid-row:2/4;grid-column:2;border-left:1px solid var(--line);overflow:auto
 .head-sub{font-family:var(--ui);font-weight:500;font-size:15px;color:var(--gold);line-height:1.7;display:inline-block;margin-top:6px}
 #faint-note{margin:8px 0 0;font-size:11.5px;color:var(--faint)}
 .sec-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase;margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline}
+
+.fold>summary{cursor:pointer;list-style:none;user-select:none;padding:4px 0}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::after{content:"";width:7px;height:7px;border-right:1px solid var(--muted);border-bottom:1px solid var(--muted);transform:rotate(45deg);margin:0 2px 3px 10px;transition:transform .2s;flex:none}
+.fold:not([open])>summary::after{transform:rotate(-45deg);margin-bottom:0}
+.fold:not([open])>summary{margin-bottom:0}
+.fold>summary:hover{color:var(--muted)}
+.fold[data-fold="data"][open]{display:flex;flex-direction:column;gap:10px}
 #calc{color:var(--gold);font-family:var(--ui);letter-spacing:0;text-transform:none}
 ol,ul{list-style:none;margin:0;padding:0}
 #tonight{position:relative}
@@ -221,7 +229,10 @@ body.ar-on #tip{display:none}
   .app{display:flex;flex-direction:column;height:auto;min-height:100%}
   header{flex-wrap:wrap;padding:12px 16px;gap:10px}
   .stage{height:min(100vw,640px)}
-  .timebar{padding:10px 16px;flex-wrap:wrap}
+  .timebar{padding:10px 16px;flex-wrap:wrap;order:2;position:sticky;bottom:0;z-index:8;background:rgba(4,6,11,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  header{order:0}
+  .stage{order:1}
+  aside{order:3}
   aside{border-left:0;border-top:1px solid var(--line);padding:22px 16px 40px}
   .legend{display:none}
   #card{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;border-radius:18px 18px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20}
@@ -303,20 +314,20 @@ body.ar-on #tip{display:none}
       <p id="headline">今夜の空を計算しています</p>
       <div id="night-date"></div>
     </section>
-    <section>
-      <h2 class="sec-h"><span>今夜の流れ</span><span id="calc" hidden></span></h2>
+    <details class="fold" data-fold="tonight" open>
+      <summary class="sec-h"><span>今夜の流れ</span><span id="calc" hidden></span></summary>
       <ol id="tonight"></ol>
       <p id="faint-note"></p>
-    </section>
-    <section>
-      <h2 class="sec-h"><span>次の流星群</span></h2>
+    </details>
+    <details class="fold" data-fold="showers" open>
+      <summary class="sec-h"><span>次の流星群</span></summary>
       <ul id="showers"></ul>
-    </section>
-    <section class="data">
-      <h2 class="sec-h" style="margin:0"><span>人工衛星の軌道データ</span></h2>
+    </details>
+    <details class="fold data" data-fold="data" open>
+      <summary class="sec-h" style="margin:0"><span>人工衛星の軌道データ</span></summary>
       <div id="data-state"></div>
       <button type="button" class="btn primary" id="open-data">軌道データを入れる・更新する</button>
-    </section>
+    </details>
     <div class="foot">
       星: HYG v4.1 (CC BY-SA 4.0) · 星座線・天の川: d3-celestial (BSD) · 天体暦: Astronomy Engine (MIT) · 衛星計算: satellite.js (SGP4) · 流星群: IMO標準値。衛星の明るさと流星数は目安です。時刻は日本時間。
     </div>
