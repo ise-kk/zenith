@@ -1,0 +1,354 @@
+<title>Zenith</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --night:#04060b;
+  --panel:#080c14;
+  --line:rgba(160,178,215,.13);
+  --line-hi:rgba(160,178,215,.3);
+  --ink:#e6e9ef;
+  --muted:#8b94a7;
+  --faint:#566074;
+  --gold:#f2c46d;
+  --gold-dim:rgba(242,196,109,.14);
+  --sat:#dfe9ff;
+  --display:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --ui:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+[hidden]{display:none!important}
+html,body{height:100%;background:var(--night);color:var(--ink)}
+body{font-family:var(--ui);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+:focus-visible{outline:1px solid var(--gold);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+small{color:var(--muted);font-size:.8em}
+
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto minmax(0,1fr) auto}
+header{grid-column:1/-1;display:flex;align-items:center;gap:18px;padding:14px 22px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand b{font-family:var(--mono);font-weight:500;letter-spacing:.44em;font-size:12.5px}
+.brand span{color:var(--muted);font-size:12px}
+.field{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+select{background:var(--panel);border:1px solid var(--line);border-radius:8px;height:32px;padding:0 10px;color:var(--ink)}
+#custom{display:flex;gap:6px;align-items:center}
+#custom input{width:86px;height:32px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:0 8px;font-family:var(--mono);font-size:12px}
+#custom button{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line-hi)}
+#custom-err{color:#ff9d8a;font-size:11px}
+.clock{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+#clock{font-size:18px}
+#clock-date{font-size:11px;color:var(--muted)}
+#live-dot{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block;margin-right:6px}
+#live-dot[data-live="true"]{background:#ff5d52;animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,93,82,.55)}70%{box-shadow:0 0 0 7px rgba(255,93,82,0)}100%{box-shadow:0 0 0 0 rgba(255,93,82,0)}}
+
+.stage{position:relative;min-height:0}
+#sky{position:absolute;inset:0;display:block;touch-action:none}
+.stage-meta{position:absolute;left:22px;top:18px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
+.stage-meta .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint)}
+#sky-state{font-family:var(--display);font-size:22px}
+.legend{position:absolute;left:22px;bottom:14px;display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--muted);pointer-events:none}
+.legend i{display:inline-block;width:18px;height:0;border-top:1px dashed rgba(220,230,250,.5);vertical-align:middle;margin-right:8px}
+.legend i.f{border-top:2px solid var(--gold)}
+.legend i.r{width:10px;height:10px;border:1px solid var(--gold);border-radius:50%}
+.stage-tools{position:absolute;right:18px;top:16px;display:flex;gap:6px}
+.chip{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line-hi);font-size:12px;color:var(--muted);background:rgba(8,12,20,.6)}
+.chip:hover{color:var(--ink)}
+.chip[aria-pressed="true"]{color:var(--night);background:var(--ink);border-color:var(--ink)}
+#card{position:absolute;left:18px;top:64px;bottom:16px;width:340px;overflow:auto;background:rgba(7,10,17,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line-hi);border-radius:14px;padding:20px 20px 18px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;z-index:3}
+#card:not([hidden]) ~ .legend{display:none}
+#card > *{flex-shrink:0}
+#card-close{position:absolute;right:10px;top:8px;width:30px;height:30px;border-radius:8px;color:var(--muted);font-size:18px}
+#card-close:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+#card h2{margin:-4px 0 0;font-family:var(--display);font-size:32px;line-height:1.2}
+#card-latin{color:var(--muted);font-size:12.5px;margin-top:-8px}
+#card-lead{margin:0;font-size:13.5px;line-height:1.8;color:#d7dce6}
+#card-now{margin:0;font-size:13px;padding:10px 12px;border-radius:10px;background:var(--gold-dim);line-height:1.7}
+#card-now b{color:var(--gold);font-weight:500}
+#card-now span{color:var(--muted);font-size:12px}
+#card-facts{margin:0;display:flex;flex-direction:column}
+#card-facts div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+#card-facts dt{color:var(--muted)}
+#card-facts dd{margin:0;text-align:right}
+#card .sec-h{margin:6px 0 0}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-weight:400;color:var(--faint);text-align:left;padding:4px 6px 4px 0;font-size:11px;border-bottom:1px solid var(--line)}
+td{padding:5px 6px 5px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+.r{text-align:right}
+#card-mes{display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+#card-mes b{color:#aad7ff;font-weight:500;margin-right:4px}
+#card-mes span{color:var(--muted);font-size:11.5px}
+.card-foot{font-size:10.5px;color:var(--faint);line-height:1.6}
+#tip{position:absolute;z-index:4;left:0;top:0;pointer-events:none;background:rgba(6,9,16,.9);border:1px solid var(--line-hi);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:1px;font-size:12px;max-width:280px}
+#tip b{font-weight:500}
+#tip span{color:var(--muted)}
+
+aside{grid-row:2/4;grid-column:2;border-left:1px solid var(--line);overflow:auto;padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--gold);text-transform:uppercase}
+#headline{font-family:var(--display);font-weight:700;font-size:25px;line-height:1.5;margin:6px 0 0;text-wrap:balance}
+#night-date{color:var(--muted);font-size:12px}
+.sec-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase;margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline}
+#calc{color:var(--gold);font-family:var(--ui);letter-spacing:0;text-transform:none}
+ol,ul{list-style:none;margin:0;padding:0}
+#tonight{position:relative}
+#tonight::before{content:"";position:absolute;left:47px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.ev button{width:100%;display:grid;grid-template-columns:40px 1fr;column-gap:22px;text-align:left;padding:8px 8px 8px 0;border-radius:8px;position:relative}
+.ev button::before{content:"";position:absolute;left:44px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--panel);border:1px solid var(--line-hi)}
+.ev button:hover{background:rgba(255,255,255,.025)}
+.ev button[aria-current="true"]{background:var(--gold-dim)}
+.ev time{grid-row:1/3;font-size:12.5px;color:var(--muted);padding-top:1px}
+.ev .tt{font-size:14px}
+.ev .ss{grid-column:2;font-size:12px;color:var(--muted)}
+.k-pass .tt{color:var(--sat)}
+.k-pass button::before{background:var(--sat);border-color:var(--sat)}
+.featured .tt{color:var(--gold);font-weight:500}
+.featured button::before{background:var(--gold);border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-dim)}
+.k-moon button::before{background:#c9cfda}
+.past{opacity:.42}
+
+.shower{border:1px solid var(--line);border-radius:12px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:4px}
+#showers{display:flex;flex-direction:column;gap:8px}
+.sh-top{display:flex;justify-content:space-between;align-items:center}
+.sh-name{font-family:var(--display);font-size:17px;font-weight:700}
+.grade{font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid var(--line-hi);color:var(--muted)}
+.grade.good{color:var(--night);background:var(--gold);border-color:var(--gold)}
+.grade.ok{color:var(--gold);border-color:rgba(242,196,109,.5)}
+.sh-date{font-size:12.5px}
+.sh-best,.sh-rate{font-size:12px;color:var(--muted)}
+.sh-rate b,.sh-best b{color:var(--ink);font-weight:500}
+.sh-go{align-self:flex-start;margin-top:6px;font-size:12px;color:var(--gold);padding:0}
+.sh-go:hover{text-decoration:underline}
+.shower:not(.first) .sh-best,.shower:not(.first) .sh-go{display:none}
+
+.data{border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:10px}
+#data-state{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}
+#data-state b{color:var(--ink);font-weight:500;font-size:13px}
+#data-state b.aging{color:var(--gold)}
+#data-state b.stale{color:#ff9d8a}
+.btn{height:36px;border-radius:9px;border:1px solid var(--line-hi);padding:0 14px;font-size:13px;align-self:flex-start}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:var(--night);font-weight:500}
+.btn.primary:hover{color:var(--night);filter:brightness(1.08)}
+.foot{font-size:11px;color:var(--faint);line-height:1.7}
+.foot a{color:var(--muted)}
+
+.timebar{grid-column:1;border-top:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:12px 22px}
+.rates{display:flex;gap:4px;flex:none}
+.rates button{height:30px;padding:0 10px;border-radius:7px;font-size:12px;color:var(--muted);border:1px solid transparent;white-space:nowrap}
+.rates button:hover{color:var(--ink)}
+.rates button[aria-pressed="true"]{background:var(--gold);color:var(--night);font-weight:500}
+#now{border-color:var(--line-hi);color:var(--ink)}
+#scrub{flex:1;min-width:0;height:38px;position:relative;cursor:ew-resize;touch-action:none}
+#scrub-track{position:absolute;left:0;right:0;top:6px;height:14px;border-radius:4px;background:rgba(92,128,170,.22);overflow:visible}
+.band{position:absolute;top:0;bottom:0}
+.band.b1{background:rgba(70,90,140,.35)}.band.b2{background:rgba(35,48,90,.55)}.band.b3{background:rgba(16,22,46,.8)}.band.b4{background:#03050b}
+.tick{position:absolute;top:-3px;width:2px;height:20px;background:var(--sat);opacity:.6;transform:translateX(-1px)}
+.tick.f{background:var(--gold);opacity:1}
+.hr{position:absolute;top:22px;font-size:10px;color:var(--faint);transform:translateX(-50%)}
+#cursor{position:absolute;top:-6px;width:2px;height:26px;background:var(--ink);transform:translateX(-1px);box-shadow:0 0 8px rgba(255,255,255,.5)}
+
+#dlg{position:fixed;inset:0;background:rgba(2,3,7,.7);display:grid;place-items:center;z-index:30;padding:16px}
+.dlg{width:min(620px,100%);background:var(--panel);border:1px solid var(--line-hi);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow:auto}
+.dlg h2{margin:0;font-family:var(--display);font-size:22px}
+.dlg ol{list-style:decimal;padding-left:1.3em;color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:6px}
+.dlg ol b{color:var(--ink);font-weight:500}
+.dlg a{color:var(--gold)}
+.urls{display:flex;flex-direction:column;gap:6px}
+.url{display:flex;gap:8px;align-items:center;font-size:12px}
+.url code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--night);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-family:var(--mono);color:var(--muted)}
+textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);border:1px solid var(--line-hi);border-radius:10px;padding:10px;font-family:var(--mono);font-size:11px;resize:vertical}
+#tle-err{color:#ff9d8a;font-size:12px;min-height:1em}
+.row{display:flex;gap:8px;justify-content:space-between;align-items:center}
+
+#loading{position:fixed;inset:0;background:var(--night);display:grid;place-items:center;z-index:40;transition:opacity .8s}
+#loading[data-done="true"]{opacity:0;pointer-events:none}
+#loading b{font-family:var(--mono);font-weight:500;letter-spacing:.5em;font-size:13px}
+
+
+.ar-btn{color:var(--night)!important;background:var(--gold);border-color:var(--gold);font-weight:500}
+#ar{position:fixed;inset:0;z-index:50;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#arc{position:absolute;inset:0;display:block}
+#ar-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ar-btns{display:flex;gap:6px}
+#ar-cam[aria-pressed="true"]{background:var(--ink);color:var(--night);border-color:var(--ink)}
+#ar-fov{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 62px);transform:translateX(-50%);font-size:12px;background:rgba(6,9,16,.75);padding:6px 12px;border-radius:14px;color:var(--ink);white-space:nowrap}
+.ar-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 0}
+.ar-top .chip{height:38px;padding:0 14px;background:rgba(6,9,16,.7)}
+#ar-red[aria-pressed="true"]{background:#7a1010;border-color:#b02020;color:#ffd0d0}
+#ar-where{font-size:12px;color:var(--muted);background:rgba(6,9,16,.6);padding:6px 10px;border-radius:14px}
+.ar-reticle{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border:1.5px solid rgba(242,196,109,.85);border-radius:50%;pointer-events:none}
+.ar-reticle::before,.ar-reticle::after{content:"";position:absolute;background:rgba(242,196,109,.85)}
+.ar-reticle::before{left:50%;top:-10px;width:1.5px;height:8px;margin-left:-.75px}
+.ar-reticle::after{top:50%;left:-10px;height:1.5px;width:8px;margin-top:-.75px}
+#ar-aim{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);text-align:center;pointer-events:none;display:flex;flex-direction:column;gap:1px}
+#ar-aim b{font-family:var(--display);font-size:20px;color:var(--gold);text-shadow:0 1px 8px #000}
+#ar-aim span{font-size:11px;color:var(--muted)}
+#ar-guide{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(6,9,16,.8);border:1px solid rgba(242,196,109,.6);border-radius:22px;padding:8px 16px 8px 10px;font-size:13px;color:var(--gold);white-space:nowrap}
+#ar-guide i{width:24px;height:24px;display:grid;place-items:center;transition:transform .2s}
+#ar-guide i::before{content:"";width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid var(--gold)}
+#ar-guide i[data-here="true"]::before{width:12px;height:12px;border:2px solid var(--gold);border-radius:50%}
+#ar-perm{position:absolute;left:50%;top:60%;transform:translateX(-50%);height:48px;padding:0 22px;border-radius:24px;background:var(--gold);color:var(--night);font-weight:500;font-size:15px}
+#ar-hint,#ar-acc{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 62px);text-align:center;font-size:13px;color:var(--ink);background:rgba(6,9,16,.75);border-radius:12px;padding:10px 12px}
+#ar-acc{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);color:var(--gold)}
+.ar-veil{position:absolute;inset:0;pointer-events:none;background:#ff1a00;mix-blend-mode:multiply;opacity:0;transition:opacity .3s}
+#ar.red .ar-veil{opacity:1}
+body.ar-on #card{position:fixed;z-index:70;left:0;right:0;bottom:0;top:auto;width:auto;max-height:55vh;border-radius:18px 18px 0 0}
+body.ar-on #tip{display:none}
+@media (max-width:430px){#ar-where{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}}
+@media (max-width:980px){
+  body{overflow:auto}
+  .app{display:flex;flex-direction:column;height:auto;min-height:100%}
+  header{flex-wrap:wrap;padding:12px 16px;gap:10px}
+  .stage{height:min(100vw,640px)}
+  .timebar{padding:10px 16px;flex-wrap:wrap}
+  aside{border-left:0;border-top:1px solid var(--line);padding:22px 16px 40px}
+  .legend{display:none}
+  #card{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;border-radius:18px 18px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20}
+  .brand{width:100%;margin-right:0}
+  .field{font-size:11px}
+  select{height:36px;font-size:13px}
+  .chip{height:36px}
+  .clock{margin-left:auto}
+  .stage-meta{left:14px;top:10px}
+  #sky-state{font-size:18px}
+  .stage-tools{right:12px;top:10px}
+  .rates{width:100%;justify-content:space-between}
+  .rates button{height:36px;padding:0 12px}
+  #scrub{flex:none;width:100%;height:42px}
+  #headline{font-size:22px}
+  .ev button{padding:10px 8px 10px 0}
+  #tip{max-width:240px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand"><b>ZENITH</b><span>今夜の空</span></div>
+    <label class="field" for="place">観測地
+      <select id="place"></select>
+    </label>
+    <button type="button" class="chip" id="geo">現在地</button>
+    <form id="custom" hidden>
+      <input id="lat" inputmode="decimal" aria-label="緯度" placeholder="緯度">
+      <input id="lon" inputmode="decimal" aria-label="経度" placeholder="経度">
+      <button type="submit">設定</button>
+      <span id="custom-err"></span>
+    </form>
+    <label class="field" for="skysel">空の暗さ
+      <select id="skysel">
+        <option value="city">都市の空（4等星まで）</option>
+        <option value="suburb">郊外の空（5.5等星まで）</option>
+        <option value="dark">暗い空（6.5等星まで）</option>
+      </select>
+    </label>
+    <div class="clock"><span class="num"><span id="live-dot"></span><span id="clock">--:--:--</span></span><span id="clock-date"></span></div>
+  </header>
+
+  <div class="stage">
+    <canvas id="sky" aria-label="観測地から見上げた全天の星図。中心が天頂、外周が地平線、上が北、左が東"></canvas>
+    <div class="stage-meta"><span class="k">NOW</span><span id="sky-state">夜</span></div>
+    <div class="legend">
+      <span>星座にカーソルを合わせ、クリックで詳しく（スマホはタップ）</span>
+      <span><i class="f"></i>選んだ通過の軌跡</span>
+      <span><i></i>これから3時間の通過</span>
+      <span><i class="r"></i>流星群の放射点</span>
+      <span>中心が真上、円周が地平線。上が北・左が東（見上げた向き）</span>
+    </div>
+    <div class="stage-tools"><button type="button" id="t-ar" class="chip ar-btn">かざす</button><button type="button" id="t-lines" class="chip" aria-pressed="false">星座線と名前</button></div>
+    <article id="card" hidden>
+      <button type="button" id="card-close" aria-label="閉じる">×</button>
+      <div class="kicker" id="card-kicker"></div>
+      <h2 id="card-name"></h2>
+      <div id="card-latin"></div>
+      <p id="card-lead"></p>
+      <p id="card-now"></p>
+      <dl id="card-facts"></dl>
+      <h3 class="sec-h"><span>明るい星</span><span>光年</span></h3>
+      <div class="tbl"><table><thead><tr><th>名前</th><th>符号</th><th class="r">等級</th><th>スペクトル</th><th class="r">距離</th></tr></thead><tbody id="card-stars"></tbody></table></div>
+      <div id="card-mes-wrap"><h3 class="sec-h"><span>星雲・星団・銀河（メシエ天体）</span></h3><ul id="card-mes"></ul></div>
+      <div class="card-foot">星のデータ: HYG v4.1（ヒッパルコス衛星などの観測）。遠い星ほど距離の誤差が大きくなります。面積は星座境界から計算した値です。</div>
+    </article>
+    <div id="tip" hidden></div>
+  </div>
+
+  <aside>
+    <section>
+      <div class="kicker">Tonight</div>
+      <p id="headline">今夜の空を計算しています</p>
+      <div id="night-date"></div>
+    </section>
+    <section>
+      <h2 class="sec-h"><span>今夜の流れ</span><span id="calc" hidden></span></h2>
+      <ol id="tonight"></ol>
+    </section>
+    <section>
+      <h2 class="sec-h"><span>次の流星群</span></h2>
+      <ul id="showers"></ul>
+    </section>
+    <section class="data">
+      <h2 class="sec-h" style="margin:0"><span>人工衛星の軌道データ</span></h2>
+      <div id="data-state"></div>
+      <button type="button" class="btn primary" id="open-data">軌道データを入れる・更新する</button>
+    </section>
+    <div class="foot">
+      星: HYG v4.1 (CC BY-SA 4.0) · 星座線・天の川: d3-celestial (BSD) · 天体暦: Astronomy Engine (MIT) · 衛星計算: satellite.js (SGP4) · 流星群: IMO標準値。衛星の明るさと流星数は目安です。時刻は日本時間。
+    </div>
+  </aside>
+
+  <div class="timebar">
+    <div class="rates">
+      <button type="button" id="now" aria-pressed="true">現在</button>
+      <button type="button" data-rate="0">停止</button>
+      <button type="button" data-rate="1">×1</button>
+      <button type="button" data-rate="60">×60</button>
+      <button type="button" data-rate="600">×600</button>
+    </div>
+    <div id="scrub" role="slider" aria-label="今夜の時刻" tabindex="0"><div id="scrub-track"></div></div>
+  </div>
+</div>
+
+<div id="dlg" hidden>
+  <form class="dlg" id="tle-form">
+    <div class="row"><h2>軌道データを入れる</h2><button type="button" id="dlg-close" aria-label="閉じる">閉じる</button></div>
+    <ol>
+      <li>下のリンクを開きます（CelesTrakが公開している最新の軌道データです）。</li>
+      <li>表示された文字を<b>すべて選択してコピー</b>します（Ctrl+A → Ctrl+C）。</li>
+      <li>下の欄に<b>貼り付けて「読み込む」</b>を押します。2つとも入れると、ISS・天宮と明るい人工衛星がそろいます。</li>
+    </ol>
+    <div class="urls">
+      <div class="url"><a href="https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&amp;FORMAT=tle" target="_blank" rel="noopener">宇宙ステーション</a><code>celestrak.org/NORAD/elements/gp.php?GROUP=stations&amp;FORMAT=tle</code></div>
+      <div class="url"><a href="https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&amp;FORMAT=tle" target="_blank" rel="noopener">明るい人工衛星</a><code>celestrak.org/NORAD/elements/gp.php?GROUP=visual&amp;FORMAT=tle</code></div>
+    </div>
+    <textarea id="tle-text" spellcheck="false" placeholder="ISS (ZARYA)&#10;1 25544U 98067A   ...&#10;2 25544  51.6...&#10;"></textarea>
+    <div id="tle-err"></div>
+    <div class="row"><button type="button" class="btn" id="tle-clear">保存したデータを消す</button><button type="submit" class="btn primary">読み込む</button></div>
+    <div class="foot">データはこのブラウザにだけ保存されます。軌道データは数日で古くなるため、週に1〜2回の更新をおすすめします。</div>
+  </form>
+</div>
+
+<div id="ar" hidden>
+  <video id="ar-video" playsinline muted autoplay hidden></video>
+  <canvas id="arc" aria-label="スマホを向けた方向の空"></canvas>
+  <div class="ar-top">
+    <button type="button" id="ar-close" class="chip">戻る</button>
+    <span id="ar-where" class="num"></span>
+    <span class="ar-btns"><button type="button" id="ar-cam" class="chip" aria-pressed="false">カメラ</button><button type="button" id="ar-red" class="chip" aria-pressed="false">赤色ライト</button></span>
+  </div>
+  <div id="ar-fov" class="num" hidden></div>
+  <div class="ar-reticle" aria-hidden="true"></div>
+  <div id="ar-aim"></div>
+  <div id="ar-guide" hidden><i data-here="false"></i><span></span></div>
+  <button type="button" id="ar-perm" hidden>センサーを使ってはじめる</button>
+  <div id="ar-hint" hidden></div>
+  <div id="ar-acc" hidden>方位がずれています。スマホを「8の字」に数回動かしてください。</div>
+  <div class="ar-veil" aria-hidden="true"></div>
+</div>
+<div id="loading"><b>ZENITH</b></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
