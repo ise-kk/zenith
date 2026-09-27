@@ -88,7 +88,9 @@ td{padding:5px 6px 5px 0;border-bottom:1px solid var(--line);white-space:nowrap}
 #tip b{font-weight:500}
 #tip span{color:var(--muted)}
 
-aside{grid-row:2/4;grid-column:2;border-left:1px solid var(--line);overflow:auto;padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+aside{grid-row:2/4;grid-column:2;border-left:1px solid var(--line);overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.sheet-body{padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px}
+.sheet-grip{display:none}
 .kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--gold);text-transform:uppercase}
 #headline{font-family:var(--display);font-weight:700;font-size:25px;line-height:1.5;margin:6px 0 0;text-wrap:balance}
 #night-date{color:var(--muted);font-size:12px}
@@ -212,9 +214,9 @@ body.ar-on #card{position:fixed;z-index:70;left:0;right:0;bottom:0;top:auto;widt
 body.ar-on #tip{display:none}
 @media (max-width:430px){#ar-where{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}}
 @media (max-width:980px){
-  /* phone: sky + time controls stay put, only the information panel scrolls */
+  /* phone: sky + time controls fill the screen; information lives in a pull-up sheet */
   html,body{height:100%;overflow:hidden}
-  .app{display:flex;flex-direction:column;height:100vh;height:100dvh;min-height:0}
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh;min-height:0;padding-bottom:calc(58px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
   header{order:0;flex:none;flex-wrap:wrap;padding:8px 12px;gap:6px 8px;align-items:center}
   .brand{order:0;margin-right:auto}
   .brand b{font-size:11.5px}
@@ -227,12 +229,18 @@ body.ar-on #tip{display:none}
   .field{font-size:0;gap:0}
   select{height:32px;font-size:12.5px;padding:0 6px;max-width:44vw}
   .chip{height:32px;padding:0 10px}
-  .stage{order:1;flex:none;height:min(100vw,46vh)}
+  .stage{order:1;flex:1 1 auto;min-height:0}
   .timebar{order:2;flex:none;padding:6px 12px 8px;flex-wrap:wrap;gap:4px;background:var(--night)}
   .rates{width:100%;justify-content:space-between}
   .rates button{height:32px;padding:0 10px}
   #scrub{flex:none;width:100%;height:38px}
-  aside{order:3;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;border-left:0;border-top:1px solid var(--line);padding:14px 16px calc(24px + env(safe-area-inset-bottom,0px));gap:16px}
+  aside{position:fixed;left:0;right:0;bottom:0;height:92vh;height:92dvh;z-index:15;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line-hi);border-bottom:0;border-radius:18px 18px 0 0;background:rgba(8,11,19,.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 -12px 40px rgba(0,0,0,.55);transform:translateY(calc(100% - 58px - env(safe-area-inset-bottom,0px)));will-change:transform}
+  aside.anim{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+  .sheet-grip{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;padding:8px 16px 10px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+  .sheet-grip i{width:38px;height:4px;border-radius:2px;background:var(--line-hi)}
+  #peek{font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  #peek b{color:var(--gold);font-weight:500;font-family:var(--mono);margin-right:6px}
+  .sheet-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:6px 16px calc(24px + env(safe-area-inset-bottom,0px));gap:18px}
   .legend{display:none}
   #card{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;border-radius:18px 18px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20}
   .stage-meta{left:12px;top:8px}
@@ -296,7 +304,9 @@ body.ar-on #tip{display:none}
     <div id="tip" hidden></div>
   </div>
 
-  <aside>
+  <aside id="sheet">
+    <div class="sheet-grip" id="grip" role="button" tabindex="0" aria-label="情報を開く・閉じる"><i></i><div id="peek">今夜の空を計算しています</div></div>
+    <div class="sheet-body" id="sheet-body">
     <section>
       <div class="kicker">Tonight</div>
       <p id="headline">今夜の空を計算しています</p>
@@ -318,6 +328,7 @@ body.ar-on #tip{display:none}
     </details>
     <div class="foot">
       星: HYG v4.1 (CC BY-SA 4.0) · 星座線・天の川: d3-celestial (BSD) · 天体暦: Astronomy Engine (MIT) · 衛星計算: satellite.js (SGP4) · 流星群: IMO標準値。衛星の明るさと流星数は目安です。時刻は日本時間。
+    </div>
     </div>
   </aside>
 

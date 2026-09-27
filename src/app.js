@@ -513,6 +513,15 @@ function renderTonight() {
     ...vis.map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
   ].sort((a, b) => a.t - b.t);
 
+  // one-line summary for the phone sheet: the next thing that happens tonight
+  const nowMs = st.live ? Date.now() : st.t;
+  const nx = items.find(it => (it.type === 'pass' ? it.p.end.t : it.t.getTime()) > nowMs);
+  if (nx) {
+    const label = nx.type === 'pass' ? `${S.FEATURED[nx.p.sat.id] ? S.FEATURED[nx.p.sat.id].short : titleCase(nx.p.sat.name)}が${dir(nx.p.start.az)}から` : nx.title;
+    $('peek').innerHTML = `<b>次 ${hm(nx.t)}</b>${esc(label)}`;
+  } else if (st.nextStation) {
+    const n = st.nextStation; $('peek').innerHTML = `<b>次 ${md(new Date(n.start.t))} ${hm(new Date(n.start.t))}</b>${esc(S.FEATURED[n.sat.id].short)}が${dir(n.start.az)}から`;
+  } else $('peek').textContent = '今夜の流れ・流星群・軌道データ';
   // headline
   const featured = vis.filter(p => S.FEATURED[p.sat.id]);
   const nextF = featured.find(p => p.end.t > Date.now()) || featured[0];
@@ -536,9 +545,9 @@ function renderTonight() {
   }).join('');
   $('tonight').querySelectorAll('[data-pass]').forEach(b => b.addEventListener('click', () => {
     const it = items[+b.dataset.pass]; st.focusPass = it.p; setTime(it.p.start.t - 30e3, 10);
-    markActive(b);
+    markActive(b); sheetTo('peek');
   }));
-  $('tonight').querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); }));
+  $('tonight').querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
   $('faint-note').textContent = faint > 0 ? `ほかに、双眼鏡向けの暗い人工衛星の通過が${faint}回あります（3等より暗いもの）。` : '';
   renderScrubTicks(items);
 }
@@ -563,7 +572,7 @@ function renderShowers() {
       <button type="button" class="sh-go" data-t="${n.best ? n.best.t.getTime() : s.peak.getTime()}">その夜の空を見る</button>
     </li>`;
   }).join('');
-  $('showers').querySelectorAll('.sh-go').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1, true); }));
+  $('showers').querySelectorAll('.sh-go').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1, true); sheetTo('peek'); }));
 }
 
 // ---------- time ----------
@@ -849,9 +858,51 @@ $('geo').addEventListener('click', () => {
 document.querySelectorAll('details.fold').forEach(d => {
   const key = 'fold.' + d.dataset.fold;
   const saved = store.get(key, null);
-  d.open = saved == null ? !matchMedia('(max-width: 980px)').matches : saved;
+  d.open = saved == null ? true : saved;
   d.addEventListener('toggle', () => store.set(key, d.open));
 });
+// ---------- phone: pull-up sheet (peek / half / full) ----------
+const PHONE = matchMedia('(max-width: 980px)');
+const sheet = $('sheet'), grip = $('grip'), sheetBody = $('sheet-body');
+let sheetState = 'peek', sheetDrag = null;
+function sheetStops() {
+  const H = sheet.getBoundingClientRect().height; // sheet is 92% of the screen
+  const peekH = grip.getBoundingClientRect().height + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0);
+  const vh = innerHeight;
+  return { peek: H - Math.max(peekH, 58), half: H - vh * 0.5, full: 0 };
+}
+function sheetTo(state, animate = true) {
+  if (!PHONE.matches) return;
+  sheetState = state;
+  const y = sheetStops()[state];
+  sheet.classList.toggle('anim', animate);
+  sheet.style.transform = state === 'peek' ? '' : `translateY(${y}px)`;
+  sheetBody.scrollTop = state === 'peek' ? 0 : sheetBody.scrollTop;
+}
+grip.addEventListener('pointerdown', e => {
+  if (!PHONE.matches) return;
+  const stops = sheetStops();
+  sheetDrag = { y0: e.clientY, base: stops[sheetState], t0: performance.now(), moved: 0 };
+  sheet.classList.remove('anim'); grip.setPointerCapture(e.pointerId);
+});
+grip.addEventListener('pointermove', e => {
+  if (!sheetDrag) return;
+  const dy = e.clientY - sheetDrag.y0; sheetDrag.moved = Math.max(sheetDrag.moved, Math.abs(dy));
+  const y = Math.max(0, Math.min(sheetStops().peek, sheetDrag.base + dy));
+  sheet.style.transform = `translateY(${y}px)`; sheetDrag.last = y; sheetDrag.v = dy / Math.max(1, performance.now() - sheetDrag.t0);
+});
+grip.addEventListener('pointerup', () => {
+  if (!sheetDrag) return;
+  const d = sheetDrag; sheetDrag = null;
+  if (d.moved < 6) { sheetTo(sheetState === 'peek' ? 'half' : 'peek'); return; } // tap toggles
+  const stops = sheetStops(), y = d.last ?? d.base;
+  let target = Object.entries(stops).sort((a, b) => Math.abs(a[1] - y) - Math.abs(b[1] - y))[0][0];
+  if (d.v < -0.6) target = y < stops.half ? 'full' : 'half';
+  if (d.v > 0.6) target = y > stops.half ? 'peek' : 'half';
+  sheetTo(target);
+});
+grip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sheetTo(sheetState === 'peek' ? 'half' : 'peek'); } });
+addEventListener('resize', () => { if (PHONE.matches) sheetTo(sheetState, false); else sheet.style.transform = ''; });
 function boot() {
   resize();
   loadStoredTLE();
