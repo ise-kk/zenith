@@ -44,13 +44,16 @@ const cv = $('sky'), ctx = cv.getContext('2d');
 let W = 0, H = 0, R = 0, CX = 0, CY = 0, DPR = 1;
 function resize() {
   const box = cv.parentElement.getBoundingClientRect();
+  if (!box.width || !box.height) return;
   DPR = Math.min(devicePixelRatio || 1, 2);
   W = box.width; H = box.height;
-  cv.width = W * DPR; cv.height = H * DPR;
-  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   R = Math.min(W, H) / 2 - (Math.min(W, H) < 600 ? 26 : 34); CX = W / 2; CY = H / 2;
 }
 addEventListener('resize', () => { resize(); });
+// the stage can change size without a window resize (rotation settling, grid changes): watch it directly
+if ('ResizeObserver' in window) new ResizeObserver(() => resize()).observe(cv.parentElement);
+addEventListener('orientationchange', () => setTimeout(resize, 300));
 
 // stereographic projection from the zenith; N up, E left (looking up)
 function proj(alt, az) {
@@ -861,49 +864,19 @@ document.querySelectorAll('details.fold').forEach(d => {
   d.open = saved == null ? true : saved;
   d.addEventListener('toggle', () => store.set(key, d.open));
 });
-// ---------- phone: pull-up sheet (peek / half / full) ----------
+// ---------- phone (upright): tonight's details open as a full-screen page ----------
+// 'peek' closes it (used after jumping to a time), anything else opens it.
 const PHONE = matchMedia('(max-width: 980px) and (orientation: portrait)');
-PHONE.addEventListener && PHONE.addEventListener('change', () => { if (!PHONE.matches) { sheet.style.transform = ''; sheet.classList.remove('anim'); } else sheetTo('peek', false); });
-const sheet = $('sheet'), grip = $('grip'), sheetBody = $('sheet-body');
-let sheetState = 'peek', sheetDrag = null;
-function sheetStops() {
-  const H = sheet.getBoundingClientRect().height; // sheet is 92% of the screen
-  const peekH = grip.getBoundingClientRect().height + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sab')) || 0);
-  const vh = innerHeight;
-  return { peek: H - Math.max(peekH, 58), half: H - vh * 0.5, full: 0 };
+const sheet = $('sheet'), sheetBody = $('sheet-body');
+function sheetTo(state) {
+  const open = state !== 'peek' && PHONE.matches;
+  sheet.classList.toggle('open', open);
+  if (!open) sheetBody.scrollTop = sheetBody.scrollTop;
 }
-function sheetTo(state, animate = true) {
-  if (!PHONE.matches) return;
-  sheetState = state;
-  const y = sheetStops()[state];
-  sheet.classList.toggle('anim', animate);
-  sheet.style.transform = state === 'peek' ? '' : `translateY(${y}px)`;
-  sheetBody.scrollTop = state === 'peek' ? 0 : sheetBody.scrollTop;
-}
-grip.addEventListener('pointerdown', e => {
-  if (!PHONE.matches) return;
-  const stops = sheetStops();
-  sheetDrag = { y0: e.clientY, base: stops[sheetState], t0: performance.now(), moved: 0 };
-  sheet.classList.remove('anim'); grip.setPointerCapture(e.pointerId);
-});
-grip.addEventListener('pointermove', e => {
-  if (!sheetDrag) return;
-  const dy = e.clientY - sheetDrag.y0; sheetDrag.moved = Math.max(sheetDrag.moved, Math.abs(dy));
-  const y = Math.max(0, Math.min(sheetStops().peek, sheetDrag.base + dy));
-  sheet.style.transform = `translateY(${y}px)`; sheetDrag.last = y; sheetDrag.v = dy / Math.max(1, performance.now() - sheetDrag.t0);
-});
-grip.addEventListener('pointerup', () => {
-  if (!sheetDrag) return;
-  const d = sheetDrag; sheetDrag = null;
-  if (d.moved < 6) { sheetTo(sheetState === 'peek' ? 'half' : 'peek'); return; } // tap toggles
-  const stops = sheetStops(), y = d.last ?? d.base;
-  let target = Object.entries(stops).sort((a, b) => Math.abs(a[1] - y) - Math.abs(b[1] - y))[0][0];
-  if (d.v < -0.6) target = y < stops.half ? 'full' : 'half';
-  if (d.v > 0.6) target = y > stops.half ? 'peek' : 'half';
-  sheetTo(target);
-});
-grip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sheetTo(sheetState === 'peek' ? 'half' : 'peek'); } });
-addEventListener('resize', () => { if (PHONE.matches) sheetTo(sheetState, false); else sheet.style.transform = ''; });
+$('info-open').addEventListener('click', () => { sheetBody.scrollTop = 0; sheetTo('full'); });
+$('sheet-close').addEventListener('click', () => sheetTo('peek'));
+addEventListener('keydown', e => { if (e.key === 'Escape' && sheet.classList.contains('open')) sheetTo('peek'); });
+PHONE.addEventListener && PHONE.addEventListener('change', () => sheetTo('peek'));
 function boot() {
   resize();
   loadStoredTLE();
