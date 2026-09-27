@@ -105,6 +105,8 @@ aside{grid-row:2/4;grid-column:2;border-left:1px solid var(--line);overflow:auto
 .kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--gold);text-transform:uppercase}
 #headline{font-family:var(--display);font-weight:700;font-size:25px;line-height:1.5;margin:6px 0 0;text-wrap:balance}
 #night-date{color:var(--muted);font-size:12px}
+.head-sub{font-family:var(--ui);font-weight:500;font-size:15px;color:var(--gold);line-height:1.7;display:inline-block;margin-top:6px}
+#faint-note{margin:8px 0 0;font-size:11.5px;color:var(--faint)}
 .sec-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase;margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline}
 #calc{color:var(--gold);font-family:var(--ui);letter-spacing:0;text-transform:none}
 ol,ul{list-style:none;margin:0;padding:0}
@@ -303,6 +305,7 @@ body.ar-on #tip{display:none}
     <section>
       <h2 class="sec-h"><span>今夜の流れ</span><span id="calc" hidden></span></h2>
       <ol id="tonight"></ol>
+      <p id="faint-note"></p>
     </section>
     <section>
       <h2 class="sec-h"><span>次の流星群</span></h2>
