@@ -209,6 +209,7 @@ textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);b
 #ar-guide i[data-here="true"]::before{width:12px;height:12px;border:2px solid var(--gold);border-radius:50%}
 #ar-perm{position:absolute;left:50%;top:60%;transform:translateX(-50%);height:48px;padding:0 22px;border-radius:24px;background:var(--gold);color:var(--night);font-weight:500;font-size:15px}
 #ar-hint,#ar-acc{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 62px);text-align:center;font-size:13px;color:var(--ink);background:rgba(6,9,16,.75);border-radius:12px;padding:10px 12px}
+#ar-cal{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 62px);text-align:center;font-size:13px;color:var(--night);background:var(--gold);border-radius:12px;padding:10px 12px}
 #ar-acc{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);color:var(--gold)}
 .ar-veil{position:absolute;inset:0;pointer-events:none;background:#ff1a00;mix-blend-mode:multiply;opacity:0;transition:opacity .3s}
 #ar.red .ar-veil{opacity:1}
@@ -366,6 +367,7 @@ body.ar-on #tip{display:none}
   <div id="ar-guide" hidden><i data-here="false"></i><span></span></div>
   <button type="button" id="ar-perm" hidden>センサーを使ってはじめる</button>
   <div id="ar-hint" hidden></div>
+  <div id="ar-cal" hidden>方位を合わせています。スマホを画面が見やすい角度（手前に傾けた持ち方）で1秒ほど持ってから、空へ向けてください。</div>
   <div id="ar-acc" hidden>方位がずれています。スマホを「8の字」に数回動かしてください。</div>
   <div class="ar-veil" aria-hidden="true"></div>
 </div>
