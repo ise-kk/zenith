@@ -862,7 +862,8 @@ document.querySelectorAll('details.fold').forEach(d => {
   d.addEventListener('toggle', () => store.set(key, d.open));
 });
 // ---------- phone: pull-up sheet (peek / half / full) ----------
-const PHONE = matchMedia('(max-width: 980px)');
+const PHONE = matchMedia('(max-width: 980px) and (orientation: portrait)');
+PHONE.addEventListener && PHONE.addEventListener('change', () => { if (!PHONE.matches) { sheet.style.transform = ''; sheet.classList.remove('anim'); } else sheetTo('peek', false); });
 const sheet = $('sheet'), grip = $('grip'), sheetBody = $('sheet-body');
 let sheetState = 'peek', sheetDrag = null;
 function sheetStops() {
