@@ -230,6 +230,20 @@ textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);b
 #ar-acc{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);color:var(--gold)}
 .ar-veil{position:absolute;inset:0;pointer-events:none;background:#ff1a00;mix-blend-mode:multiply;opacity:0;transition:opacity .3s}
 #ar.red .ar-veil{opacity:1}
+#ar-sat{position:absolute;z-index:6;left:0;right:0;bottom:0;max-height:40vh;max-height:40dvh;overflow:auto;background:rgba(7,10,17,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line-hi);border-bottom:0;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+#ar-sat > *{flex-shrink:0}
+#ar.sat-open #ar-aim,#ar.sat-open #ar-guide{display:none}
+#ar-sat h2{margin:-4px 0 0;font-family:var(--display);font-size:26px;line-height:1.25;padding-right:34px}
+#ar-sat-raw{font-size:11px;color:var(--faint);margin-top:-6px}
+#ar-sat-now{margin:0;font-size:13px;padding:9px 12px;border-radius:10px;background:var(--gold-dim);line-height:1.7}
+#ar-sat-now b{color:var(--gold);font-weight:500}
+#ar-sat-note{margin:0;font-size:13px;line-height:1.75;color:#d7dce6}
+#ar-sat-facts{margin:0;display:flex;flex-direction:column}
+#ar-sat-facts div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+#ar-sat-facts dt{color:var(--muted);flex:none}
+#ar-sat-facts dd{margin:0;text-align:right}
+#ar-sat-close{position:absolute;right:10px;top:8px;width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:18px}
+@media (orientation:landscape) and (max-height:600px){#ar-sat{left:auto;top:0;width:min(340px,45vw);max-height:none;border-radius:0;border-width:0 0 0 1px;padding-top:calc(14px + env(safe-area-inset-top,0px));padding-right:calc(18px + env(safe-area-inset-right,0px))}}
 body.ar-on #card{position:fixed;z-index:70;left:0;right:0;bottom:0;top:auto;width:auto;max-height:55vh;border-radius:18px 18px 0 0}
 body.ar-on #tip{display:none}
 @media (max-width:430px){#ar-where{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}}
@@ -436,6 +450,16 @@ body.ar-on #tip{display:none}
   <div id="ar-hint" hidden></div>
   <div id="ar-cal" hidden>方位を合わせています。スマホを画面が見やすい角度（手前に傾けた持ち方）で1秒ほど持ってから、空へ向けてください。</div>
   <div id="ar-acc" hidden>方位がずれています。スマホを「8の字」に数回動かしてください。</div>
+  <article id="ar-sat" hidden>
+    <button type="button" id="ar-sat-close" aria-label="閉じる">×</button>
+    <div class="kicker" id="ar-sat-kind"></div>
+    <h2 id="ar-sat-name"></h2>
+    <div id="ar-sat-raw" class="num"></div>
+    <p id="ar-sat-now"></p>
+    <p id="ar-sat-note"></p>
+    <dl id="ar-sat-facts"></dl>
+    <div class="card-foot">位置は公開されている軌道データ（CelesTrak）からの計算です。明るさは目安、軌道の高さは平均的な値です。</div>
+  </article>
   <div class="ar-veil" aria-hidden="true"></div>
 </div>
 <div id="loading"><b>ZENITH</b></div>
