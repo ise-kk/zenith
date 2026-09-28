@@ -1,7 +1,7 @@
 // Starlink "trains": satellites from one recent launch still bunched together along their orbit.
 // trains.json is refreshed by the site's scheduled job (SpaceX orbits via CelesTrak, launch dates from SATCAT).
 // A launch counts as a train only while at least MIN satellites sit within ARC degrees of each other.
-const ARC = 40, MIN = 8;
+const ARC = 15, MIN = 10;
 const D2R = Math.PI / 180;
 
 export function createTrains({ st, S }) {
