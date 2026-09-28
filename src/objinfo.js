@@ -57,6 +57,46 @@ export function createObjInfo(deps) {
     for (let ms = t0 + 5 * 60e3; ms < t0 + 26 * 3600e3; ms += 5 * 60e3) { const a = alt(ms); if (prev <= 0 && a > 0) return new Date(ms); prev = a; }
     return null;
   }
+  // tonight's path (sunset → sunrise, every 10 min, on the clock) and its rise / highest / set
+  const pathCache = new Map();
+  function tonightPath(o) {
+    if (!st.win || ['sat', 'train', 'sun', 'con'].includes(o.kind)) return null;
+    const a = st.win.sunset.getTime(), b = st.win.sunrise.getTime();
+    const key = keyOf(o) + '@' + a + ':' + st.place.lat + ',' + st.place.lon;
+    if (pathCache.has(key)) return pathCache.get(key);
+    const pts = [];
+    const step = 10 * 60e3;
+    const push = (ms) => { const q = posOf(o, new Date(ms)); if (!q) return; const dd = new Date(ms); const hour = dd.getMinutes() === 0; pts.push({ t: ms, alt: q.alt, az: q.az, hour, label: hour ? String(dd.getHours()) : '' }); };
+    push(a);
+    for (let ms = Math.ceil(a / step) * step; ms < b; ms += step) push(ms);
+    push(b);
+    // events, crossings interpolated to the minute
+    const cross = (p, q) => p.t + (q.t - p.t) * (0 - p.alt) / (q.alt - p.alt);
+    let rise = null, set = null, top = null;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i], q = pts[i + 1];
+      if (p.alt > 0 && (!top || p.alt > top.alt)) top = p;
+      if (q && p.alt <= 0 && q.alt > 0 && !rise) rise = { t: cross(p, q), az: q.az };
+      if (q && p.alt > 0 && q.alt <= 0) set = { t: cross(p, q), az: p.az };
+    }
+    const res = { pts, rise, set, top, upAtStart: pts[0].alt > 0, upAtEnd: pts[pts.length - 1].alt > 0 };
+    if (pathCache.size > 30) pathCache.delete(pathCache.keys().next().value);
+    pathCache.set(key, res);
+    return res;
+  }
+  function tonightText(o) {
+    const P = tonightPath(o); if (!P) return '';
+    if (!P.top) return t('tnNone');
+    const bits = [];
+    if (P.rise) bits.push(t('tnRise', hm(new Date(P.rise.t)), dir(P.rise.az)));
+    else if (P.upAtStart) bits.push(t('tnUpDusk', dir(P.pts[0].az)));
+    const top = P.top;
+    const edge = top === P.pts[0] || top === P.pts[P.pts.length - 1];
+    if (!edge) bits.push(t('tnTop', hm(new Date(top.t)), dir(top.az), Math.round(top.alt)));
+    if (P.set) bits.push(t('tnSet', hm(new Date(P.set.t)), dir(P.set.az)));
+    else if (P.upAtEnd) bits.push(t('tnUpDawn'));
+    return t('tnHead') + bits.join(' → ');
+  }
   const nowLine = (p, extra = '') => p && p.alt > 0 ? t('ocNow', dir(p.az), Math.round(p.alt)) + extra : t('ocBelow') + extra;
   const row = (k, v) => v == null || v === '' ? '' : `<div><dt>${k}</dt><dd>${v}</dd></div>`;
   const rts = (rise, tr, set, d) => `${when(rise && rise.date, d)} · ${when(tr && tr.time.date, d)} · ${when(set && set.date, d)}`;
@@ -206,7 +246,8 @@ export function createObjInfo(deps) {
     q('.oc-kind').textContent = c.kind;
     q('.oc-name').textContent = c.name;
     q('.oc-sub').innerHTML = c.sub; q('.oc-sub').hidden = !c.sub;
-    q('.oc-now').innerHTML = c.now;
+    const tn = tonightText(o);
+    q('.oc-now').innerHTML = c.now + (tn ? `<span class="oc-tn">${tn}</span>` : '');
     q('.oc-lead').textContent = c.lead; q('.oc-lead').hidden = !c.lead;
     q('.oc-facts').innerHTML = c.facts.join('');
     const acts = q('.oc-actions');
@@ -219,5 +260,5 @@ export function createObjInfo(deps) {
     acts.hidden = !c.actions.length;
     q('.oc-foot').textContent = c.foot; q('.oc-foot').hidden = !c.foot;
   }
-  return { render, posOf, nameOf, keyOf };
+  return { render, posOf, nameOf, keyOf, tonightPath };
 }

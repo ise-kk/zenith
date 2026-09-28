@@ -57,14 +57,15 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 
 // ---------- canvas ----------
 const cv = $('sky'), ctx = cv.getContext('2d');
-let W = 0, H = 0, R = 0, CX = 0, CY = 0, DPR = 1;
+let W = 0, H = 0, R = 0, CX = 0, CY = 0, DPR = 1, R0 = 0, CY0 = 0;
 function resize() {
-  const box = cv.parentElement.getBoundingClientRect();
+  const box = cv.getBoundingClientRect(); // the canvas may leave room for the tool row below it (phones)
   if (!box.width || !box.height) return;
   DPR = Math.min(devicePixelRatio || 1, 2);
   W = box.width; H = box.height;
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-  R = Math.min(W, H) / 2 - (Math.min(W, H) < 600 ? 26 : 34); CX = W / 2; CY = H / 2;
+  R0 = Math.min(W, H) / 2 - (Math.min(W, H) < 600 ? 26 : 34); CY0 = H / 2;
+  R = R0; CX = W / 2; CY = CY0;
 }
 addEventListener('resize', () => { resize(); });
 // the stage can change size without a window resize (rotation settling, grid changes): watch it directly
@@ -111,7 +112,22 @@ function mix(a, b, k) { return a.map((v, i) => v + (b[i] - v) * k); }
 const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
 let lastFrame = { sunAlt: -90, map: null };
+// phone, upright: while a card covers the lower part of the screen, the sky shrinks into the space above it
+function fitAboveCard() {
+  let r = R0, cy = CY0;
+  if (PHONE.matches) {
+    const open = [$('ocard'), $('card')].find(el => el && !el.hidden);
+    if (open) {
+      const avail = open.getBoundingClientRect().top - cv.getBoundingClientRect().top;
+      // shrink a little (not so much that the stars crowd together) and move up; the far south may stay under the card
+      if (avail < 2 * R0 + 40) { r = Math.max(R0 * 0.78, avail / 2 - 24); cy = Math.min(CY0, Math.max(avail / 2 + 2, r + 26)); }
+    }
+  }
+  R += (r - R) * 0.25; CY += (cy - CY) * 0.25;
+  if (Math.abs(R - r) < 0.3) R = r; if (Math.abs(CY - cy) < 0.3) CY = cy;
+}
 function draw() {
+  fitAboveCard();
   const d = new Date(st.t);
   const obs = st.place;
   const map = S.horizonMapper(d, obs);
@@ -336,8 +352,24 @@ function draw() {
       satHits.push({ kind: 'train', name: t('train'), x: head.x, y: head.y, ...head.lk, vis: true, o: { kind: 'train', g: c.g.id } });
     }
   }
-  // the selected / searched-for object: a gold ring that breathes gently
+  // the selected / searched-for object: tonight's path across the sky (hour marks), and a gold ring that breathes gently
   if (st.sel) {
+    const path = OI.tonightPath(st.sel);
+    if (path) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(242,196,109,.42)'; ctx.lineWidth = 1.3; ctx.setLineDash([2, 5]);
+      ctx.beginPath(); let prev = null;
+      for (const s of path.pts) { if (s.alt <= 0) { prev = null; continue; } const q = proj(s.alt, s.az); if (prev) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); prev = q; }
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = '10.5px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+      for (const s of path.pts) {
+        if (!s.hour || s.alt <= 2) continue;
+        const [x, y] = proj(s.alt, s.az);
+        ctx.fillStyle = 'rgba(242,196,109,.75)'; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(242,196,109,.8)'; ctx.fillText(s.label, x, y - 7);
+      }
+      ctx.restore();
+    }
     const sp = OI.posOf(st.sel, d);
     if (sp && sp.alt > 0) {
       const [x, y] = proj(sp.alt, sp.az);

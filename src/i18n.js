@@ -268,6 +268,14 @@ const D = {
   shareVisible: { ja: '見えているもの', en: 'In the sky' },
   shareNote: { ja: '計算による空の再現です（天気は含みません）', en: 'A computed view of the sky (weather not included)' },
   shareText: { ja: (d) => `${d}の空 — Zenith`, en: (d) => `The sky on ${d} — Zenith` },
+  // tonight's path on the card
+  tnHead: { ja: '今夜 ', en: 'Tonight: ' },
+  tnRise: { ja: (h, d) => `${h} ${d}から昇る`, en: (h, d) => `rises ${h} in the ${d}` },
+  tnUpDusk: { ja: (d) => `日の入りに${d}の空`, en: (d) => `in the ${d} at sunset` },
+  tnTop: { ja: (h, d, a) => `${h} ${d} ${a}°で最も高く`, en: (h, d, a) => `highest ${h}, ${d} ${a}°` },
+  tnSet: { ja: (h, d) => `${h} ${d}に沈む`, en: (h, d) => `sets ${h} in the ${d}` },
+  tnUpDawn: { ja: '明け方まで空に', en: 'up until dawn' },
+  tnNone: { ja: '今夜は昇りません', en: 'Does not rise tonight' },
   // Starlink trains
   train: { ja: 'スターリンク・トレイン', en: 'Starlink train' },
   trainShort: { ja: 'スターリンク', en: 'Starlink' },
