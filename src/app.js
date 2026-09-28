@@ -1,5 +1,12 @@
 import * as S from './sky.js';
 import { createAR } from './ar.js';
+import { createObjInfo } from './objinfo.js';
+import { createSearch } from './search.js';
+import { createTrains } from './trains.js';
+import { createShare } from './share.js';
+import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT } from './i18n.js';
+import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
+const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
 const { A } = S;
 const DATA = window.ZENITH_DATA;
 const $ = (id) => document.getElementById(id);
@@ -7,15 +14,25 @@ const D2R = Math.PI / 180;
 
 // ---------- state ----------
 const PLACES = [
-  { id: 'tokyo', ja: '東京', lat: 35.6812, lon: 139.7671 },
-  { id: 'sapporo', ja: '札幌', lat: 43.0687, lon: 141.3508 },
-  { id: 'sendai', ja: '仙台', lat: 38.2682, lon: 140.8694 },
-  { id: 'nagoya', ja: '名古屋', lat: 35.1709, lon: 136.8815 },
-  { id: 'osaka', ja: '大阪', lat: 34.7025, lon: 135.4959 },
-  { id: 'fukuoka', ja: '福岡', lat: 33.5902, lon: 130.4017 },
-  { id: 'naha', ja: '那覇', lat: 26.2124, lon: 127.6809 },
+  { id: 'tokyo', ja: '東京', en: 'Tokyo', lat: 35.6812, lon: 139.7671 },
+  { id: 'sapporo', ja: '札幌', en: 'Sapporo', lat: 43.0687, lon: 141.3508 },
+  { id: 'sendai', ja: '仙台', en: 'Sendai', lat: 38.2682, lon: 140.8694 },
+  { id: 'nagoya', ja: '名古屋', en: 'Nagoya', lat: 35.1709, lon: 136.8815 },
+  { id: 'osaka', ja: '大阪', en: 'Osaka', lat: 34.7025, lon: 135.4959 },
+  { id: 'fukuoka', ja: '福岡', en: 'Fukuoka', lat: 33.5902, lon: 130.4017 },
+  { id: 'naha', ja: '那覇', en: 'Naha', lat: 26.2124, lon: 127.6809 },
 ];
-const SKIES = { city: { ja: '都市の空', lm: 4.0 }, suburb: { ja: '郊外の空', lm: 5.5 }, dark: { ja: '暗い空', lm: 6.5 } };
+// the place's name in the current language (saved places may predate the English names)
+function placeName(p) {
+  if (!p) return '';
+  if (p.id === 'here') return t('here');
+  const k = PLACES.find(x => x.id === p.id);
+  if (k) return JA ? k.ja : k.en;
+  return p.ja;
+}
+const SKIES = { city: { key: 'skyCityS', lm: 4.0 }, suburb: { key: 'skySuburbS', lm: 5.5 }, dark: { key: 'skyDarkS', lm: 6.5 } };
+const fShort = (f) => (JA ? f.short : f.shortEn || f.short);
+const fName = (f) => (JA ? f.ja : f.en);
 const store = {
   get(k, d) { try { const v = localStorage.getItem('zenith.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('zenith.' + k, JSON.stringify(v)); } catch (e) { } },
@@ -28,15 +45,14 @@ const st = {
   focusCon: null, showLines: store.get('lines', false),
 };
 
+const TR = createTrains({ st, S });
+st.trainPasses = [];
+
 // ---------- formatting ----------
-const TZ = 'Asia/Tokyo';
-const hm = (d) => new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ }).format(d);
-const hms = (d) => new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: TZ }).format(d);
-const md = (d) => new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: TZ }).format(d);
-const DIRS = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
-const dir = (az) => DIRS[Math.round(az / 22.5) % 16];
-const dir8 = (az) => ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][Math.round(az / 45) % 8];
-const mag = (m) => (m < 0 ? '−' + Math.abs(m).toFixed(1) : m.toFixed(1));
+const hm = (d) => new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ }).format(d);
+const hms = (d) => new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: TZ }).format(d);
+const md = (d) => new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', { month: JA ? 'numeric' : 'short', day: 'numeric', weekday: 'short', timeZone: TZ }).format(d);
+const mag = magT;
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---------- canvas ----------
@@ -83,11 +99,11 @@ const STAR_RGB = DATA.stars.map(s => bvColor(s[3]));
 function skyState(sunAlt) {
   const lm0 = SKIES[st.sky].lm;
   let lm = lm0, top, bottom, label;
-  if (sunAlt > 0) { lm = -1; top = [34, 62, 104]; bottom = [92, 128, 170]; label = '昼'; }
-  else if (sunAlt > -6) { const k = -sunAlt / 6; lm = Math.min(lm0, 0 + k * 2); top = mix([30, 52, 92], [14, 24, 52], k); bottom = mix([160, 110, 90], [60, 58, 90], k); label = '市民薄明'; }
-  else if (sunAlt > -12) { const k = (-sunAlt - 6) / 6; lm = Math.min(lm0, 2 + k * 2); top = mix([14, 24, 52], [6, 10, 24], k); bottom = mix([60, 58, 90], [18, 22, 44], k); label = '航海薄明'; }
-  else if (sunAlt > -18) { const k = (-sunAlt - 12) / 6; lm = Math.min(lm0, 4 + k * 2.5); top = mix([6, 10, 24], [3, 5, 12], k); bottom = mix([18, 22, 44], [8, 10, 20], k); label = '天文薄明'; }
-  else { top = [3, 5, 12]; bottom = [8, 10, 20]; label = '夜'; }
+  if (sunAlt > 0) { lm = -1; top = [34, 62, 104]; bottom = [92, 128, 170]; label = t('day'); }
+  else if (sunAlt > -6) { const k = -sunAlt / 6; lm = Math.min(lm0, 0 + k * 2); top = mix([30, 52, 92], [14, 24, 52], k); bottom = mix([160, 110, 90], [60, 58, 90], k); label = t('civil'); }
+  else if (sunAlt > -12) { const k = (-sunAlt - 6) / 6; lm = Math.min(lm0, 2 + k * 2); top = mix([14, 24, 52], [6, 10, 24], k); bottom = mix([60, 58, 90], [18, 22, 44], k); label = t('nautical'); }
+  else if (sunAlt > -18) { const k = (-sunAlt - 12) / 6; lm = Math.min(lm0, 4 + k * 2.5); top = mix([6, 10, 24], [3, 5, 12], k); bottom = mix([18, 22, 44], [8, 10, 20], k); label = t('astro'); }
+  else { top = [3, 5, 12]; bottom = [8, 10, 20]; label = t('night'); }
   if (st.sky === 'city' && sunAlt < -6) bottom = mix(bottom, [46, 36, 30], 0.6);
   return { lm, top, bottom, label };
 }
@@ -171,7 +187,7 @@ function draw() {
   if (linesOn && !st.focusCon) {
     ctx.font = '500 10.5px "Zen Kaku Gothic New", sans-serif'; ctx.textAlign = 'center';
     ctx.fillStyle = `rgba(150,165,200,${0.4 * nightK + 0.1})`;
-    for (const c of CON) { if (c.id === active) continue; const h = map(c.lab[0], c.lab[1]); if (h.alt < 8) continue; const [x, y] = proj(h.alt, h.az); ctx.fillText(c.ja, x, y); }
+    for (const c of CON) { if (c.id === active) continue; const h = map(c.lab[0], c.lab[1]); if (h.alt < 8) continue; const [x, y] = proj(h.alt, h.az); ctx.fillText(conName(c), x, y); }
   }
   if (active) {
     const focused = !!st.focusCon;
@@ -211,9 +227,9 @@ function draw() {
     ctx.fillStyle = rgb(c, a); ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
     if (DATA.info[i]) starScreen.push({ i, x, y, alt: h.alt, az: h.az, mag: s[2] });
   }
+  mesScreen = [];
   // labels: active constellation name, its bright stars, Messier objects when focused
   ctx.textAlign = 'left';
-  const starLabel = (i) => { const inf = DATA.info[i]; return inf[1] && /[\u3040-\u30ff\u4e00-\u9fff]/.test(inf[1]) ? inf[1] : (inf[0] || inf[1]); };
   if (active) {
     const aidx = new Set(CON.map((c, i) => c.id === active ? i : -1).filter(i => i >= 0));
     ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = 'rgba(236,232,220,.92)';
@@ -223,7 +239,7 @@ function draw() {
     if (h.alt > -5) {
       const [x, y] = proj(Math.max(h.alt, 2), h.az);
       ctx.font = '700 17px "Shippori Mincho", serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)';
-      ctx.fillText(c0.ja, x, y + 22); ctx.textAlign = 'left';
+      ctx.fillText(conName(c0), x, y + 22); ctx.textAlign = 'left';
     }
     if (st.focusCon) {
       ctx.font = '11px "JetBrains Mono", monospace';
@@ -232,7 +248,8 @@ function draw() {
         const hh = map(mo[4], mo[5]); if (hh.alt < 0) continue;
         const [x, y] = proj(hh.alt, hh.az);
         ctx.strokeStyle = 'rgba(160,210,255,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y, 6, 4, -0.5, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = 'rgba(170,215,255,.9)'; ctx.fillText(mo[0] + (mo[1] ? ' ' + mo[1] : ''), x + 9, y + 4);
+        ctx.fillStyle = 'rgba(170,215,255,.9)'; ctx.fillText(messierShort(mo), x + 9, y + 4);
+        mesScreen.push({ x, y, o: { kind: 'messier', m: mo } });
       }
     }
   } else if (st.showLines) {
@@ -240,6 +257,7 @@ function draw() {
     for (const ss of starScreen) { if (DATA.stars[ss.i][2] > 1.6) continue; ctx.fillText(starLabel(ss.i), ss.x + 6, ss.y - 5); }
   }
 
+  radScreen = [];
   // meteor radiant (active showers)
   for (const sh of S.SHOWERS) {
     if (!S.showerActive(sh, d)) continue;
@@ -247,7 +265,8 @@ function draw() {
     const [x, y] = proj(h.alt, h.az);
     ctx.strokeStyle = 'rgba(242,196,109,.75)'; ctx.lineWidth = 1;
     for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); ctx.lineTo(x + Math.cos(a) * 15, y + Math.sin(a) * 15); ctx.stroke(); }
-    ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = '11px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(sh.ja.replace('流星群', '') + ' 放射点', x + 18, y + 4);
+    ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = '11px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('radiant', showerShort(sh)), x + 18, y + 4);
+    radScreen.push({ x, y, o: { kind: 'shower', sh } });
   }
 
   // planets
@@ -259,8 +278,9 @@ function draw() {
     const [x, y] = proj(h.alt, h.az);
     const rad = Math.max(1.6, Math.min(4.5, 2.4 - m * 0.55));
     ctx.fillStyle = 'rgba(255,236,200,.95)'; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,226,170,.9)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; if (x > CX + R * 0.6) { ctx.textAlign = 'right'; ctx.fillText(p.ja, x - 8, y + 4); ctx.textAlign = 'left'; } else ctx.fillText(p.ja, x + 8, y + 4);
-    planetHits.push({ kind: 'planet', name: p.ja, x, y, alt: h.alt, az: h.az, mag: m });
+    const pn = planetName(p);
+    ctx.fillStyle = 'rgba(255,226,170,.9)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; if (x > CX + R * 0.6) { ctx.textAlign = 'right'; ctx.fillText(pn, x - 8, y + 4); ctx.textAlign = 'left'; } else ctx.fillText(pn, x + 8, y + 4);
+    planetHits.push({ kind: 'planet', name: pn, x, y, alt: h.alt, az: h.az, mag: m, o: { kind: 'planet', body: p.body, ja: p.ja, en: p.en } });
   }
   // moon
   const mh = S.bodyAltAz(A.Body.Moon, d, obs);
@@ -269,7 +289,7 @@ function draw() {
     const [x, y] = proj(mh.alt, mh.az);
     const ill = A.Illumination(A.Body.Moon, d);
     drawMoon(x, y, 9, ill.phase_fraction, A.MoonPhase(d), mh, map);
-    moonHit = { kind: 'moon', name: '月', x, y, alt: mh.alt, az: mh.az, ill: ill.phase_fraction };
+    moonHit = { kind: 'moon', name: t('moon'), x, y, alt: mh.alt, az: mh.az, ill: ill.phase_fraction, o: { kind: 'moon', body: A.Body.Moon, ja: '月' } };
   }
   // sun (daytime)
   if (sun.alt > -1) {
@@ -299,8 +319,32 @@ function draw() {
     } else {
       ctx.strokeStyle = 'rgba(200,215,240,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.stroke();
     }
-    if (featured) { ctx.fillStyle = vis ? '#f4f8ff' : 'rgba(200,215,240,.6)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(S.FEATURED[sat.id].short + (vis ? '' : '（影の中）'), x + 8, y - 6); }
-    satHits.push({ kind: 'sat', name: S.FEATURED[sat.id]?.ja || sat.name, x, y, ...lk, vis });
+    if (featured) { ctx.fillStyle = vis ? '#f4f8ff' : 'rgba(200,215,240,.6)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(fShort(S.FEATURED[sat.id]) + (vis ? '' : t('inShadow')), x + 8, y - 6); }
+    satHits.push({ kind: 'sat', name: featured ? fName(S.FEATURED[sat.id]) : sat.name, x, y, ...lk, vis, o: { kind: 'sat', sat } });
+  }
+  // Starlink trains: only the bunched-up members, only while sunlit against a dark sky
+  for (const c of TR.active(d)) {
+    let head = null, n = 0;
+    for (const sat of c.members) {
+      const lk = S.satLook(sat, d, obs); if (!lk || lk.alt < 0 || !lk.sunlit || sun.alt > -6) continue;
+      const [x, y] = proj(lk.alt, lk.az);
+      ctx.fillStyle = 'rgba(236,244,255,.92)'; ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+      if (!head) head = { x, y, lk }; n++;
+    }
+    if (head && n >= 3) {
+      ctx.fillStyle = 'rgba(236,244,255,.8)'; ctx.font = '500 11.5px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('trainShort'), head.x + 8, head.y - 6);
+      satHits.push({ kind: 'train', name: t('train'), x: head.x, y: head.y, ...head.lk, vis: true, o: { kind: 'train', g: c.g.id } });
+    }
+  }
+  // the selected / searched-for object: a gold ring that breathes gently
+  if (st.sel) {
+    const sp = OI.posOf(st.sel, d);
+    if (sp && sp.alt > 0) {
+      const [x, y] = proj(sp.alt, sp.az);
+      const k = 0.5 + 0.5 * Math.sin(performance.now() / 380);
+      ctx.strokeStyle = `rgba(242,196,109,${0.55 + 0.4 * k})`; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(x, y, 11 + 3 * k, 0, Math.PI * 2); ctx.stroke();
+    }
   }
   ctx.restore();
 
@@ -310,16 +354,16 @@ function draw() {
   ctx.strokeStyle = 'rgba(190,205,235,.38)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = 'rgba(210,220,240,.8)'; ctx.font = '500 13px "Zen Kaku Gothic New", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const edge = (az, k) => [CX - (R + k) * Math.sin(az * D2R), CY - (R + k) * Math.cos(az * D2R)];
-  for (const [t, az] of [['北', 0], ['東', 90], ['南', 180], ['西', 270]]) { const [x, y] = edge(az, 15); ctx.fillText(t, x, y); }
+  for (const [k, az] of [['N', 0], ['E', 90], ['S', 180], ['W', 270]]) { const [x, y] = edge(az, 15); ctx.fillText(t(k), x, y); }
   ctx.fillStyle = 'rgba(150,165,200,.55)'; ctx.font = '10px "JetBrains Mono", monospace';
-  for (const [t, az] of [['NE', 45], ['SE', 135], ['SW', 225], ['NW', 315]]) { const [x, y] = edge(az, 14); ctx.fillText(t, x, y); }
+  for (const [k, az] of [['NE', 45], ['SE', 135], ['SW', 225], ['NW', 315]]) { const [x, y] = edge(az, 14); ctx.fillText(k, x, y); }
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
 
   hits = [...satHits, ...planetHits, ...(moonHit ? [moonHit] : [])];
   drawHover();
 }
 let hits = [];
-let hoverCon = null, starScreen = [];
+let hoverCon = null, starScreen = [], mesScreen = [], radScreen = [];
 const TOUCH = matchMedia('(pointer: coarse)').matches;
 // horizon (alt, az) -> J2000 RA/Dec, inverse of horizonMapper (rotation transpose)
 function horToEq(date, obs, alt, az) {
@@ -377,7 +421,7 @@ function drawMoon(x, y, r, frac, phaseDeg, mh, map) {
   ctx.ellipse(0, 0, Math.abs(k) * r, r, 0, Math.PI / 2, -Math.PI / 2, k > 0);
   ctx.fill();
   ctx.restore();
-  ctx.fillStyle = 'rgba(230,234,242,.85)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText('月', x + r + 6, y + 4);
+  ctx.fillStyle = 'rgba(230,234,242,.85)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('moon'), x + r + 6, y + 4);
 }
 
 function drawPass(p, focused) {
@@ -418,38 +462,39 @@ function drawHover() {
     if (bs) best = { kind: 'star', ...bs };
   }
   const pos = unproj(mouse[0], mouse[1]);
-  const where = `高度 ${pos.alt.toFixed(0)}° · ${dir(pos.az)}`;
+  const where = t('altDir', pos.alt.toFixed(0), dir(pos.az));
   let html;
   if (best && best.kind === 'star') {
     const inf = DATA.info[best.i], s = DATA.stars[best.i];
-    const nm = inf[1] || inf[0] || '恒星';
-    const bits = [`${mag(s[2])}等`];
-    if (inf[2]) bits.push(`スペクトル ${esc(inf[2])}`);
-    if (inf[3]) bits.push(`約${fmtLy(inf[3])}光年`);
-    html = `<b>${esc(nm)}${inf[1] && inf[0] ? ` <small>${esc(inf[0])}</small>` : ''}</b><span>${bits.join(' · ')}</span>${inf[3] ? `<span>この光は${lightYearText(inf[3])}に星を出発しました</span>` : ''}`;
+    const nm = starName(best.i), alt2 = starAlt(best.i);
+    const bits = [JA ? `${mag(s[2])}等` : `mag ${mag(s[2])}`];
+    if (inf[2]) bits.push(t('spectrum', esc(inf[2])));
+    if (inf[3]) bits.push(t('lyAbout', fmtLy(inf[3])));
+    html = `<b>${esc(nm)}${alt2 ? ` <small>${esc(alt2)}</small>` : ''}</b><span>${bits.join(' · ')}</span>${inf[3] ? `<span>${t('lightLeft', lightYearText(inf[3]))}</span>` : ''}`;
   } else if (best) {
-    let sub = `高度 ${best.alt.toFixed(0)}° · ${dir(best.az)}`;
-    if (best.kind === 'sat') sub += ` · 距離 ${Math.round(best.range).toLocaleString()} km · ${best.vis ? '推定 ' + mag(best.mag) + '等' : '地球の影の中'}`;
-    else if (best.kind === 'moon') sub += ` · 輝面比 ${(best.ill * 100).toFixed(0)}%`;
-    else sub += ` · ${mag(best.mag)}等`;
+    let sub = t('altDir', best.alt.toFixed(0), dir(best.az));
+    if (best.kind === 'sat') sub += ` · ${t('distKm', Math.round(best.range).toLocaleString())} · ${best.vis ? t('estMag', mag(best.mag)) : t('earthShadow')}`;
+    else if (best.kind === 'train') sub += '';
+    else if (best.kind === 'moon') sub += ` · ${t('litPct', (best.ill * 100).toFixed(0))}`;
+    else sub += ` · ${JA ? mag(best.mag) + '等' : 'mag ' + mag(best.mag)}`;
     html = `<b>${esc(best.name)}</b><span>${sub}</span>`;
   } else if (hoverCon && hoverCon !== st.focusCon) {
     const c = DATA.cons.find(c => c.id === hoverCon);
-    html = `<b>${esc(c.ja)}</b><span>${TOUCH ? 'タップ' : 'クリック'}で詳しく · ${where}</span>`;
+    html = `<b>${esc(conName(c))}</b><span>${t('tapMore', TOUCH)} · ${where}</span>`;
   } else html = `<span>${where}</span>`;
   cv.style.cursor = (hoverCon || best) ? 'pointer' : '';
   tip.innerHTML = html; tip.hidden = false;
   const tx = Math.min(mouse[0] + 14, W - 290);
   tip.style.transform = `translate(${tx}px, ${mouse[1] + 12}px)`;
 }
-function fmtLy(ly) { return ly < 100 ? String(ly) : Number(ly.toPrecision(2)).toLocaleString(); }
+function fmtLy(ly) { return ly < 100 ? String(ly) : Number(ly.toPrecision(2)).toLocaleString(JA ? 'ja-JP' : 'en'); }
 function lightYearText(ly) {
   const y = new Date(st.t).getFullYear();
-  if (ly < 1) return 'ついさっき';
+  if (ly < 1) return t('lyJustNow');
   const r = ly < 100 ? ly : Number(ly.toPrecision(2));
   const yr = y - r;
-  if (yr > 0) return `約${fmtLy(ly)}年前（${yr}年ごろ）`;
-  return `約${fmtLy(ly)}年前（紀元前${1 - yr}年ごろ）`;
+  if (yr > 0) return t('lyAgo', fmtLy(ly), yr);
+  return t('lyAgoBC', fmtLy(ly), 1 - yr);
 }
 
 // ---------- tonight ----------
@@ -459,15 +504,15 @@ async function computeNight() {
   st.win = S.nightWindow(now, obs);
   const w = st.win;
   const ev = [];
-  ev.push({ t: w.sunset, kind: 'sun', title: '日の入り', sub: '空が暗くなり始めます' });
-  if (w.astroDusk) ev.push({ t: w.astroDusk, kind: 'dark', title: '完全に暗くなる', sub: '天文薄明の終わり。天の川が見え始める時刻' });
-  if (w.astroDawn) ev.push({ t: w.astroDawn, kind: 'dark', title: '空が白み始める', sub: '天文薄明の始まり' });
-  ev.push({ t: w.sunrise, kind: 'sun', title: '日の出', sub: '' });
+  ev.push({ t: w.sunset, kind: 'sun', title: t('sunset'), sub: t('sunsetSub') });
+  if (w.astroDusk) ev.push({ t: w.astroDusk, kind: 'dark', title: t('dark'), sub: t('darkSub') });
+  if (w.astroDawn) ev.push({ t: w.astroDawn, kind: 'dark', title: t('dawn'), sub: t('dawnSub') });
+  ev.push({ t: w.sunrise, kind: 'sun', title: t('sunrise'), sub: '' });
   for (const m of S.moonEvents(w, obs)) {
     if (m.t < w.sunset || m.t > w.sunrise) continue;
     const ill = A.Illumination(A.Body.Moon, m.t).phase_fraction;
     const az = S.bodyAltAz(A.Body.Moon, m.t, obs).az;
-    ev.push({ t: m.t, kind: 'moon', title: m.kind === 'moonrise' ? '月の出' : '月の入り', sub: `${dir8(az)}の地平線 · 輝面比 ${(ill * 100).toFixed(0)}%` });
+    ev.push({ t: m.t, kind: 'moon', title: t(m.kind === 'moonrise' ? 'moonrise' : 'moonset'), sub: t('horizonAt', dir8(az), (ill * 100).toFixed(0)) });
   }
   // planets: best visible altitude during the night
   for (const p of S.PLANETS) {
@@ -478,7 +523,7 @@ async function computeNight() {
     }
     if (best) {
       const m = A.Illumination(p.body, best.t).mag;
-      if (m < 2.5) ev.push({ t: best.t, kind: 'planet', title: `${p.ja}が最も高く`, sub: `${dir8(best.az)}の空 高度${best.alt.toFixed(0)}° · ${mag(m)}等` });
+      if (m < 2.5) ev.push({ t: best.t, kind: 'planet', title: t('planetHigh', planetName(p)), sub: t('planetHighSub', dir8(best.az), best.alt.toFixed(0), mag(m)) });
     }
   }
   st.events = ev;
@@ -488,10 +533,12 @@ async function computeNight() {
 }
 
 async function computePasses() {
-  if (!st.sats.length || !st.win) { st.passes = []; renderTonight(); return; }
+  if (!st.win) return;
+  if (!st.sats.length && !TR.groups().length) { st.passes = []; st.trainPasses = []; renderTonight(); return; }
   st.computing = true; renderTonight();
   const t0 = new Date(Math.max(st.win.sunset.getTime(), (st.live ? Date.now() : st.t) - 15 * 60e3));
-  st.passes = await S.findPasses(st.sats, t0, st.win.sunrise, st.place, (k) => { $('calc').textContent = `通過を計算中 ${(k * 100) | 0}%`; });
+  st.passes = await S.findPasses(st.sats, t0, st.win.sunrise, st.place, (k) => { $('calc').textContent = t('calcPasses', (k * 100) | 0); });
+  try { st.trainPasses = await TR.passes(t0, st.win.sunrise, st.place); } catch (e) { st.trainPasses = []; }
   // next space-station passes over the coming 5 days (for when none remain tonight)
   const stations = st.sats.filter(x => S.FEATURED[x.id]);
   st.nextStation = null;
@@ -506,7 +553,7 @@ async function computePasses() {
 
 function renderTonight() {
   const w = st.win; if (!w) return;
-  $('night-date').textContent = `${md(w.sunset)} の夜 · ${st.place.ja}`;
+  $('night-date').textContent = t('nightOf', md(w.sunset), placeName(st.place));
   const visAll = st.passes.filter(p => p.mag < SKIES[st.sky].lm - 0.5);
   // keep the list calm: space stations always, other satellites only when easy to see
   const vis = visAll.filter(p => S.FEATURED[p.sat.id] || p.mag < 3);
@@ -514,27 +561,29 @@ function renderTonight() {
   const items = [
     ...st.events.map(e => ({ ...e, type: 'ev' })),
     ...vis.map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
+    ...(st.trainPasses || []).map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
   ].sort((a, b) => a.t - b.t);
+  const passName = (p) => p.kind === 'train' ? t('train') : S.FEATURED[p.sat.id] ? fShort(S.FEATURED[p.sat.id]) : titleCase(p.sat.name);
 
   // one-line summary for the phone sheet: the next thing that happens tonight
   const nowMs = st.live ? Date.now() : st.t;
   const nx = items.find(it => (it.type === 'pass' ? it.p.end.t : it.t.getTime()) > nowMs);
   if (nx) {
-    const label = nx.type === 'pass' ? `${S.FEATURED[nx.p.sat.id] ? S.FEATURED[nx.p.sat.id].short : titleCase(nx.p.sat.name)}が${dir(nx.p.start.az)}から` : nx.title;
-    $('peek').innerHTML = `<b>次 ${hm(nx.t)}</b>${esc(label)}`;
+    const label = nx.type === 'pass' ? t('fromDir', passName(nx.p), dir(nx.p.start.az)) : nx.title;
+    $('peek').innerHTML = `<b>${t('next')} ${hm(nx.t)}</b>${esc(label)}`;
   } else if (st.nextStation) {
-    const n = st.nextStation; $('peek').innerHTML = `<b>次 ${md(new Date(n.start.t))} ${hm(new Date(n.start.t))}</b>${esc(S.FEATURED[n.sat.id].short)}が${dir(n.start.az)}から`;
-  } else $('peek').textContent = '今夜の流れ・流星群・軌道データ';
+    const n = st.nextStation; $('peek').innerHTML = `<b>${t('next')} ${md(new Date(n.start.t))} ${hm(new Date(n.start.t))}</b>${esc(t('fromDir', fShort(S.FEATURED[n.sat.id]), dir(n.start.az)))}`;
+  } else $('peek').textContent = t('peekIdle');
   // headline
   const featured = vis.filter(p => S.FEATURED[p.sat.id]);
   const nextF = featured.find(p => p.end.t > Date.now()) || featured[0];
   let head;
-  if (!st.sats.length) head = '今夜の空を計算しました。<br>軌道データを入れると、宇宙ステーションの通過も表示されます。';
-  else if (nextF) head = `${hm(new Date(nextF.start.t))}、${esc(S.FEATURED[nextF.sat.id].short)}が<br>${dir(nextF.start.az)}の空から現れます。`;
+  if (!st.sats.length) head = t('headNoData');
+  else if (nextF) head = t('headStation', hm(new Date(nextF.start.t)), esc(fShort(S.FEATURED[nextF.sat.id])), dir(nextF.start.az));
   else {
     const n = st.nextStation;
-    const nextTxt = n ? `次は${md(new Date(n.start.t))} ${hm(new Date(n.start.t))}、${esc(S.FEATURED[n.sat.id].short)}が${dir(n.start.az)}の空に（最大${n.max.alt.toFixed(0)}°・${mag(n.mag)}等）。` : '';
-    head = `今夜これからの宇宙ステーションの通過はありません。${nextTxt ? '<br><span class="head-sub">' + nextTxt + '</span>' : ''}`;
+    const nextTxt = n ? t('headNext', md(new Date(n.start.t)), hm(new Date(n.start.t)), esc(fShort(S.FEATURED[n.sat.id])), dir(n.start.az), n.max.alt.toFixed(0), mag(n.mag)) : '';
+    head = t('headNone') + (nextTxt ? '<br><span class="head-sub">' + nextTxt + '</span>' : '');
   }
   $('headline').innerHTML = head;
 
@@ -542,16 +591,17 @@ function renderTonight() {
   $('tonight').innerHTML = items.map((it, i) => {
     const past = (it.type === 'pass' ? it.p.end.t : it.t.getTime()) < Date.now() && st.live;
     if (it.type === 'ev') return `<li class="ev k-${it.kind}${past ? ' past' : ''}"><button type="button" data-t="${it.t.getTime()}"><time class="num">${hm(it.t)}</time><span class="tt">${it.title}</span><span class="ss">${it.sub}</span></button></li>`;
-    const p = it.p, f = S.FEATURED[p.sat.id];
-    const dur = Math.round((p.end.t - p.start.t) / 60e3);
-    return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? f.ja : titleCase(p.sat.name))}</span><span class="ss">${dir(p.start.az)} → ${dir(p.end.az)} · 最大高度 ${p.max.alt.toFixed(0)}° · 約${dur}分 · 推定 ${mag(p.mag)}等</span></button></li>`;
+    const p = it.p, dur = Math.max(1, Math.round((p.end.t - p.start.t) / 60e3));
+    if (p.kind === 'train') return `<li class="ev k-pass k-train${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(t('train'))}</span><span class="ss">${t('trainPassSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur)}</span></button></li>`;
+    const f = S.FEATURED[p.sat.id];
+    return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? fName(f) : titleCase(p.sat.name))}</span><span class="ss">${t('passSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, mag(p.mag))}</span></button></li>`;
   }).join('');
   $('tonight').querySelectorAll('[data-pass]').forEach(b => b.addEventListener('click', () => {
     const it = items[+b.dataset.pass]; st.focusPass = it.p; setTime(it.p.start.t - 30e3, 10);
     markActive(b); sheetTo('peek');
   }));
   $('tonight').querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
-  $('faint-note').textContent = faint > 0 ? `ほかに、双眼鏡向けの暗い人工衛星の通過が${faint}回あります（3等より暗いもの）。` : '';
+  $('faint-note').textContent = faint > 0 ? t('faint', faint) : '';
   renderScrubTicks(items);
 }
 function titleCase(s) { return s.replace(/\s+/g, ' ').trim(); }
@@ -563,16 +613,16 @@ function renderShowers() {
   const lm = SKIES[st.sky].lm;
   $('showers').innerHTML = peaks.map((s, i) => {
     const n = S.showerNight(s, s.peak, st.place, lm);
-    const moonTxt = n.ill < 0.25 ? '月明かりの影響は小さい' : n.ill < 0.6 ? '月明かりがやや邪魔' : '明るい月が邪魔をする';
-    const grade = n.rate >= 20 ? '好条件' : n.rate >= 6 ? 'まずまず' : '控えめ';
+    const moonTxt = t(n.ill < 0.25 ? 'moonSmall' : n.ill < 0.6 ? 'moonSome' : 'moonBad');
+    const grade = t(n.rate >= 20 ? 'good' : n.rate >= 6 ? 'ok' : 'low');
     const cls = n.rate >= 20 ? 'good' : n.rate >= 6 ? 'ok' : 'low';
     const days = Math.round((s.peak - now) / 864e5);
     return `<li class="shower${i === 0 ? ' first' : ''}">
-      <div class="sh-top"><span class="sh-name">${s.ja}</span><span class="grade ${cls}">${grade}</span></div>
-      <div class="sh-date num">極大 ${md(s.peak)} ${hm(s.peak)}${days > 0 ? `<small> · あと${days}日</small>` : days === 0 ? '<small> · 今日</small>' : ''}</div>
-      ${n.best ? `<div class="sh-best">見ごろ <b class="num">${hm(n.best.t)}</b> 頃 · 放射点の高さ ${n.best.rad.toFixed(0)}° · ${moonTxt}（輝面比 ${(n.ill * 100).toFixed(0)}%）</div>
-      <div class="sh-rate">${SKIES[st.sky].ja}で 1時間に約 <b class="num">${Math.max(1, Math.round(n.rate))}</b> 個<small> · ZHR ${s.zhr}</small></div>` : '<div class="sh-best">この地点では放射点が昇りません</div>'}
-      <button type="button" class="sh-go" data-t="${n.best ? n.best.t.getTime() : s.peak.getTime()}">その夜の空を見る</button>
+      <div class="sh-top"><span class="sh-name">${esc(JA ? s.ja : s.en)}</span><span class="grade ${cls}">${grade}</span></div>
+      <div class="sh-date num">${t('peak')} ${md(s.peak)} ${hm(s.peak)}${days > 0 ? `<small> · ${t('daysLeft', days)}</small>` : days === 0 ? `<small> · ${t('today')}</small>` : ''}</div>
+      ${n.best ? `<div class="sh-best">${t('best', hm(n.best.t), n.best.rad.toFixed(0), moonTxt, (n.ill * 100).toFixed(0))}</div>
+      <div class="sh-rate">${t('rate', t(SKIES[st.sky].key), Math.max(1, Math.round(n.rate)), s.zhr)}</div>` : `<div class="sh-best">${t('noRadiant')}</div>`}
+      <button type="button" class="sh-go" data-t="${n.best ? n.best.t.getTime() : s.peak.getTime()}">${t('seeThatNight')}</button>
     </li>`;
   }).join('');
   $('showers').querySelectorAll('.sh-go').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1, true); sheetTo('peek'); }));
@@ -618,8 +668,8 @@ scrub.addEventListener('pointerup', () => { dragging = false; });
 
 // ---------- place & sky ----------
 const sel = $('place');
-sel.innerHTML = PLACES.map(p => `<option value="${p.id}">${p.ja}</option>`).join('') + '<option value="custom">緯度・経度を入力…</option>';
-if (st.place.id === 'here') sel.insertAdjacentHTML('afterbegin', '<option value="here">現在地</option>');
+sel.innerHTML = PLACES.map(p => `<option value="${p.id}">${JA ? p.ja : p.en}</option>`).join('') + `<option value="custom">${t('latlonOpt')}</option>`;
+if (st.place.id === 'here') sel.insertAdjacentHTML('afterbegin', `<option value="here">${t('here')}</option>`);
 sel.value = PLACES.some(p => p.id === st.place.id) || st.place.id === 'here' ? st.place.id : 'custom';
 sel.addEventListener('change', () => {
   if (sel.value === 'here') { $('geo').click(); return; }
@@ -630,7 +680,7 @@ sel.addEventListener('change', () => {
 $('custom').addEventListener('submit', e => {
   e.preventDefault();
   const lat = parseFloat($('lat').value), lon = parseFloat($('lon').value);
-  if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180)) { $('custom-err').textContent = '緯度は−90〜90、経度は−180〜180で入力してください'; return; }
+  if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180)) { $('custom-err').textContent = t('latlonErr'); return; }
   $('custom-err').textContent = '';
   st.place = { id: 'custom', ja: `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`, lat, lon }; store.set('place', st.place);
   $('custom').hidden = true; computeNight();
@@ -683,12 +733,12 @@ function setSats(list, save, raw) {
 }
 function renderData() {
   const box = $('data-state');
-  if (!st.sats.length) { box.innerHTML = '<b>軌道データ未設定</b><span>宇宙ステーションと人工衛星の通過予報には、最新の軌道データ（TLE）が必要です。</span>'; return; }
+  if (!st.sats.length) { box.innerHTML = t('dataNone'); return; }
   const iss = st.sats.find(s => s.id === 25544) || st.sats[0];
   const age = (Date.now() - iss.epoch) / 864e5;
   const cls = age < 2 ? 'fresh' : age < 5 ? 'aging' : 'stale';
-  const note = age < 2 ? '最新です' : age < 5 ? 'そろそろ更新を' : '古くなっています。予報が数分ずれることがあります';
-  box.innerHTML = `<b class="${cls}">${st.sats.length}機の軌道データ${st.autoTLE ? '（自動更新）' : ''}</b><span>基準時刻 ${md(iss.epoch)} ${hm(iss.epoch)}（${age.toFixed(1)}日前） · ${note}</span>`;
+  const note = t(age < 2 ? 'dataFresh' : age < 5 ? 'dataAging' : 'dataStale');
+  box.innerHTML = `<b class="${cls}">${t('dataCount', st.sats.length, st.autoTLE)}</b><span>${t('dataEpoch', md(iss.epoch), hm(iss.epoch), age.toFixed(1), note)}</span>`;
 }
 $('open-data').addEventListener('click', () => { $('dlg').hidden = false; $('tle-text').focus(); });
 $('dlg-close').addEventListener('click', () => { $('dlg').hidden = true; });
@@ -697,7 +747,7 @@ $('tle-form').addEventListener('submit', e => {
   e.preventDefault();
   const raw = $('tle-text').value;
   const list = S.parseTLE(raw);
-  if (!list.length) { $('tle-err').textContent = '軌道データが見つかりませんでした。CelesTrakのページの文字をすべて貼り付けてください（1行目が「1 」、2行目が「2 」で始まる形式）。'; return; }
+  if (!list.length) { $('tle-err').textContent = t('tleNotFound'); return; }
   $('tle-err').textContent = '';
   // merge with existing
   const prev = store.get('tle', '');
@@ -715,25 +765,39 @@ function mergeTLE(a, b) {
 }
 
 // ---------- constellation focus ----------
-const MTYPE = { s: '渦巻銀河', e: '楕円銀河', i: '不規則銀河', sfr: '散光星雲（星が生まれる場所）', pos: '星の集まり', rn: '反射星雲' };
 const AREA_RANK = (() => { const m = new Map(); for (const c of DATA.cons) m.set(c.id, Math.max(m.get(c.id) || 0, c.area)); const arr = [...m.entries()].sort((a, b) => b[1] - a[1]); return new Map(arr.map(([id, a], i) => [id, { area: a, rank: i + 1 }])); })();
 let downAt = null;
-cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(); downAt = [e.clientX - r.left, e.clientY - r.top]; });
+cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(); downAt = [e.clientX - r.left, e.clientY - r.top, performance.now()]; });
+// a deliberate tap (short, not a drag) picks the nearest thing under the finger; empty sky picks the constellation
+function objectAt(x, y, touch) {
+  const rBody = touch ? 24 : 14, rStar = touch ? 16 : 9;
+  let best = null, bd = Infinity;
+  const consider = (list, rad, get) => { for (const h of list) { const dd = Math.hypot(h.x - x, h.y - y); if (dd < rad && dd < bd) { bd = dd; best = get(h); } } };
+  consider(hits, rBody, h => h.o);
+  if (!best) consider(radScreen, rBody, h => h.o);
+  if (!best) consider(mesScreen, rStar + 2, h => h.o);
+  if (!best) consider(starScreen, rStar, h => ({ kind: 'star', i: h.i }));
+  return best;
+}
 cv.addEventListener('pointerup', e => {
   const r = cv.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top;
-  if (!downAt || Math.hypot(x - downAt[0], y - downAt[1]) > 5) return;
-  if (Math.hypot(x - CX, y - CY) > R) { focusCon(null); return; }
+  if (!downAt || Math.hypot(x - downAt[0], y - downAt[1]) > 6 || performance.now() - downAt[2] > 450) return;
+  if (Math.hypot(x - CX, y - CY) > R) { focusCon(null); closeObj(); return; }
+  const o = objectAt(x, y, e.pointerType !== 'mouse');
+  if (o) { openObj(o); return; }
+  closeObj();
   const hp = unproj(x, y); const eq = horToEq(new Date(st.t), st.place, hp.alt, hp.az);
   const hit = conAt(eq.ra, eq.dec);
   focusCon(hit || null);
 });
-addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('dlg').hidden) $('dlg').hidden = true; else focusCon(null); } });
+addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('dlg').hidden) $('dlg').hidden = true; else if (st.sel) closeObj(); else focusCon(null); } });
 $('card-close').addEventListener('click', () => focusCon(null));
 const tgl = $('t-lines');
 tgl.setAttribute('aria-pressed', String(st.showLines));
 tgl.addEventListener('click', () => { st.showLines = !st.showLines; store.set('lines', st.showLines); tgl.setAttribute('aria-pressed', String(st.showLines)); });
 
 function focusCon(id) {
+  if (id) closeObjCard();
   st.focusCon = id;
   $('card').hidden = !id;
   document.querySelector('.legend').hidden = !!id;
@@ -750,7 +814,7 @@ function culminationMonth(ra) {
   let best = null;
   const y = new Date(st.t).getFullYear();
   for (let m = 0; m < 12; m++) {
-    const d = new Date(Date.UTC(y, m, 15, 12, 0, 0)); // 21:00 JST
+    const d = new Date(Date.UTC(y, m, 15, 21, 0, 0) - st.place.lon / 15 * 3600e3); // about 21:00 local time
     const lst = (A.SiderealTime(d) * 15 + st.place.lon + 720) % 360;
     const diff = Math.abs(((lst - ra + 540) % 360) - 180);
     if (!best || diff < best.diff) best = { m: m + 1, diff };
@@ -782,49 +846,92 @@ function renderCard() {
   // plain-language lead
   let lead = '';
   if (inf0) {
-    const nm = inf0[1] || inf0[0];
-    lead += `いちばん明るい星は${esc(nm)}（${mag(DATA.stars[b0][2])}等）。`;
-    if (inf0[3]) lead += `いま届いているその光は、${lightYearText(inf0[3])}に星を出発したものです。`;
-    if (inf0[4] && inf0[4] >= 5) lead += `太陽のおよそ${inf0[4] >= 100 ? Number(inf0[4].toPrecision(2)).toLocaleString() : Math.round(inf0[4])}倍の明るさで輝いています。`;
+    const nm = starName(b0);
+    lead += t('brightest', esc(nm), mag(DATA.stars[b0][2]));
+    if (inf0[3]) lead += t('lightLeftLead', lightYearText(inf0[3]));
+    if (inf0[4] && inf0[4] >= 5) lead += t('timesSun', inf0[4] >= 100 ? Number(inf0[4].toPrecision(2)).toLocaleString(JA ? 'ja-JP' : 'en') : Math.round(inf0[4]));
   }
-  const famous = mes.find(m => m[1]);
-  if (famous) lead += `${esc(famous[1])}（${famous[0]}）もこの星座の中にあります。`;
+  const famous = mes.find(m => JA ? m[1] : MESSIER_EN_OF(m));
+  if (famous) lead += t('alsoHere', esc(JA ? famous[1] : MESSIER_EN_OF(famous)), famous[0]);
   // tonight / season
   let now;
-  if (h.alt > 0) now = `いま <b>${dir8(h.az)}の空</b>、高度 ${h.alt.toFixed(0)}°`;
-  else if (maxAlt < 0) now = `${esc(st.place.ja)}からは<b>地平線の上に昇りません</b>`;
-  else { const r = nextRise(ra, dec); now = r ? `いまは地平線の下。<b>${hm(r)}</b>ごろ昇ります` : 'いまは地平線の下'; }
+  const pn = esc(placeName(st.place));
+  if (h.alt > 0) now = t('nowIn', dir8(h.az), h.alt.toFixed(0));
+  else if (maxAlt < 0) now = t('neverRises', pn);
+  else { const r = nextRise(ra, dec); now = r ? t('belowRises', hm(r)) : t('below'); }
   let season;
   let bMin = 90, bMax = -90; for (const pc of parts) for (const ring of pc.bounds) for (const [, dd] of ring) { bMin = Math.min(bMin, dd); bMax = Math.max(bMax, dd); }
   const whollyCirc = lat >= 0 ? bMin > 90 - lat : bMax < -90 - lat;
-  if (whollyCirc) season = `${esc(st.place.ja)}では星座全体が一年中沈みません（周極星座）`;
-  else if (minAlt > 0) season = `中心部は一年中沈みませんが、一部は地平線の下に隠れる時間があります。最も高くなるのは毎年${culminationMonth(ra)}月ごろの夜9時です`;
-  else if (maxAlt < 0) season = `南の低い空に隠れ、${esc(st.place.ja)}では見られません`;
-  else season = `毎年${culminationMonth(ra)}月ごろ、夜9時に南の空で最も高くなります（最大高度 ${maxAlt.toFixed(0)}°）`;
+  if (whollyCirc) season = t('circumpolar', pn);
+  else if (minAlt > 0) season = t('partCirc', t('monthName', culminationMonth(ra)));
+  else if (maxAlt < 0) season = t('hidden', pn);
+  else season = t('season', t('monthName', culminationMonth(ra)), maxAlt.toFixed(0));
 
-  $('card-kicker').textContent = `星座 · ${id}`;
-  $('card-name').textContent = c.ja;
-  $('card-latin').textContent = `${c.la}${c.gen ? ' · 属格 ' + c.gen : ''}`;
-  $('card-lead').innerHTML = lead || '暗い星が多い、控えめな星座です。';
+  $('card-kicker').textContent = t('conKicker', id);
+  $('card-name').textContent = conName(c);
+  $('card-latin').textContent = `${JA ? c.la : ''}${c.gen ? (JA ? ' · ' : '') + t('genitive') + ' ' + c.gen : ''}`;
+  $('card-lead').innerHTML = lead || t('modest');
   $('card-now').innerHTML = `${now}<br><span>${season}</span>`;
   $('card-facts').innerHTML = [
-    ['面積', `約${Math.round(ar.area).toLocaleString()}平方度 <small>88星座中 ${ar.rank}位</small>`],
-    ['6.5等より明るい星', `${n65}個`],
-    ...(() => { let n = null; for (const i of stars) { const inf = DATA.info[i]; if (inf && inf[3] && (!n || inf[3] < n.ly)) n = { ly: inf[3], nm: inf[1] || inf[0] }; } return n ? [['いちばん近い明るい星（4.6等以上）', `${esc(n.nm)} <small>約${fmtLy(n.ly)}光年</small>`]] : []; })(),
-    ['星座の中心', `赤経 ${(ra / 15).toFixed(1)}h · 赤緯 ${dec >= 0 ? '+' : '−'}${Math.abs(dec).toFixed(0)}°`],
+    [t('area'), t('areaV', Math.round(ar.area).toLocaleString(JA ? 'ja-JP' : 'en'), ar.rank)],
+    [t('n65'), t('count', n65)],
+    ...(() => { let n = null; for (const i of stars) { const inf = DATA.info[i]; if (inf && inf[3] && (!n || inf[3] < n.ly)) n = { ly: inf[3], nm: starName(i) }; } return n ? [[t('nearest'), `${esc(n.nm)} <small>${t('lyAbout', fmtLy(n.ly))}</small>`]] : []; })(),
+    [t('center'), t('raDec', (ra / 15).toFixed(1), (dec >= 0 ? '+' : '−') + Math.abs(dec).toFixed(0))],
   ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
   $('card-stars').innerHTML = top.map(i => {
     const inf = DATA.info[i] || [];
-    return `<tr><td>${esc(inf[1] || '—')}</td><td class="num">${esc(inf[0] || '')}</td><td class="num r">${mag(DATA.stars[i][2])}</td><td class="num">${esc(inf[2] || '')}</td><td class="num r">${inf[3] ? fmtLy(inf[3]) : '—'}</td></tr>`;
+    const nm = JA ? inf[1] : starName(i) !== inf[0] ? starName(i) : '';
+    return `<tr><td>${esc(nm || '—')}</td><td class="num">${esc(inf[0] || '')}</td><td class="num r">${mag(DATA.stars[i][2])}</td><td class="num">${esc(inf[2] || '')}</td><td class="num r">${inf[3] ? fmtLy(inf[3]) : '—'}</td></tr>`;
   }).join('');
   $('card-mes-wrap').hidden = !mes.length;
-  $('card-mes').innerHTML = mes.map(m => `<li><b class="num">${m[0]}</b> ${esc(m[1] || '')} <span>${esc(MTYPE[m[2]] || m[2])}${m[3] ? ` · ${m[3]}等` : ''}</span></li>`).join('');
+  $('card-mes').innerHTML = mes.map(m => `<li><b class="num">${m[0]}</b> ${esc((JA ? m[1] : MESSIER_EN_OF(m)) || '')} <span>${esc(mtype(m[2]))}${m[3] ? ` · ${JA ? m[3] + '等' : 'mag ' + m[3]}` : ''}</span></li>`).join('');
 }
 setInterval(() => { if (st.focusCon) renderCard(); }, 5000);
 
+// ---------- anything-card (planets, Moon, stars, Messier, satellites, radiants) ----------
+const OI = createObjInfo({ st, S, A, DATA, dir, mag, esc, hm, md, lightYearText, fmtLy, TR });
+st.sel = null;
+const ocard = $('ocard');
+const ocHandlers = { con: (id) => { closeObj(); focusCon(id); }, pass: (p) => { st.focusPass = p; closeObjCard(); setTime(p.start.t - 30e3, 10); } };
+function openObj(o) {
+  if (st.focusCon) focusCon(null);
+  st.sel = o; ocard.hidden = false; document.querySelector('.legend').hidden = true;
+  OI.render(ocard, o, new Date(st.t), ocHandlers); ocard.scrollTop = 0;
+}
+function closeObjCard() { ocard.hidden = true; if (!st.focusCon) document.querySelector('.legend').hidden = false; }
+function closeObj() { st.sel = null; closeObjCard(); }
+$('ocard-close').addEventListener('click', closeObj);
+setInterval(() => { if (st.sel && !ocard.hidden) OI.render(ocard, st.sel, new Date(st.t), ocHandlers); }, 1000);
+
 // ---------- かざすモード ----------
-const ar = createAR({ $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES });
-window.__zen = { st, ar };
+const ar = createAR({ $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES, OI, TR });
+
+// ---------- search ----------
+const finder = createSearch({ st, S, A, DATA, OI, dir, mag, esc, TR });
+function pickFound(o) {
+  if (ar.isOn()) { ar.setTarget(o); return; }
+  if (o.kind === 'con') { closeObj(); focusCon(o.id); return; }
+  openObj(o);
+}
+$('t-find').addEventListener('click', () => finder.open(pickFound));
+$('ar-find').addEventListener('click', () => finder.open(pickFound));
+window.__zen = { st, ar, TR, computeNight };
+
+// ---------- share ----------
+const sharer = createShare({ st, S, A, DATA, STAR_RGB, skyState, OI, TR, hm, md, placeName, fShort });
+$('t-share').addEventListener('click', () => sharer.share());
+window.__zen.sharer = sharer;
+
+// ---------- static text in the page ----------
+document.documentElement.lang = LANG;
+document.querySelectorAll('[data-t]').forEach(el => { el.innerHTML = t(el.dataset.t); });
+document.querySelectorAll('[data-t-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.tAria)));
+document.querySelectorAll('[data-t-ph]').forEach(el => el.setAttribute('placeholder', t(el.dataset.tPh)));
+$('foot-credits').textContent = t('credits', TZ === 'Asia/Tokyo' ? t('tzJapan') : t('tzDevice', TZ));
+const langSel = $('lang');
+langSel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+langSel.value = LANG;
+langSel.addEventListener('change', () => { setLang(langSel.value); const u = new URL(location.href); u.searchParams.delete('lang'); location.replace(u.toString()); });
 $('t-ar').addEventListener('click', () => ar.open());
 
 // ---------- loop ----------
@@ -839,7 +946,7 @@ function loop(now) {
   }
   const d = new Date(st.t);
   $('clock').textContent = hms(d);
-  $('clock-date').textContent = md(d) + (st.live ? ' · ライブ' : st.rate === 0 ? ' · 停止中' : ` · ${st.rate}倍速`);
+  $('clock-date').textContent = md(d) + ' · ' + (st.live ? t('live') : st.rate === 0 ? t('paused') : t('speed', st.rate));
   $('live-dot').dataset.live = String(st.live);
   if (!ar.isOn()) { draw(); $('sky-state').textContent = lastFrame.sky.label; }
   requestAnimationFrame(loop);
@@ -848,15 +955,15 @@ function loop(now) {
 // current location (works on the hosted site; the Claude viewer refuses it)
 $('geo').addEventListener('click', () => {
   const msg = $('custom-err');
-  if (!navigator.geolocation) { msg.textContent = 'この環境では現在地を取得できません'; return; }
+  if (!navigator.geolocation) { msg.textContent = t('geoNo'); return; }
   $('geo').disabled = true;
   navigator.geolocation.getCurrentPosition(p => {
     $('geo').disabled = false;
     const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
     st.place = { id: 'here', ja: '現在地', lat, lon }; store.set('place', st.place);
-    if (![...sel.options].some(o => o.value === 'here')) sel.insertAdjacentHTML('afterbegin', '<option value="here">現在地</option>');
+    if (![...sel.options].some(o => o.value === 'here')) sel.insertAdjacentHTML('afterbegin', `<option value="here">${t('here')}</option>`);
     sel.value = 'here'; msg.textContent = ''; computeNight();
-  }, () => { $('geo').disabled = false; msg.textContent = '現在地を取得できませんでした（この画面では使えないか、許可されていません）'; $('custom').hidden = false; }, { timeout: 10000, maximumAge: 600000 });
+  }, () => { $('geo').disabled = false; msg.textContent = t('geoFail'); $('custom').hidden = false; }, { timeout: 10000, maximumAge: 600000 });
 });
 // collapsible panels: closed by default on phones, remembered per viewer
 document.querySelectorAll('details.fold').forEach(d => {
@@ -883,6 +990,7 @@ function boot() {
   loadStoredTLE();
   updateTimeUI();
   computeNight();
+  TR.load().then(ok => { if (ok) computePasses(); });
   requestAnimationFrame(loop);
   $('loading').dataset.done = 'true';
   setInterval(() => { if (st.live) renderData(); }, 60e3);

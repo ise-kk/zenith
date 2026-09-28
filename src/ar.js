@@ -2,6 +2,8 @@
 // local East-North-Up coordinates -> gnomonic (pinhole) projection of the live sky.
 // Without sensors (PC, Claude viewer) the view is dragged by hand.
 import { orbitOf, describeSat } from './satinfo.js';
+import { t, JA, kmText } from './i18n.js';
+import { conName, starLabel, planetName, showerName } from './names.js';
 const D2R = Math.PI / 180;
 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -26,8 +28,10 @@ function basisFromEuler(a, b, g) {
 }
 
 export function createAR(deps) {
-  const { $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES } = deps;
-  let satSel = null, aimObj = null, satPts = [], lastCard = 0;
+  const { $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES, OI, TR } = deps;
+  const magL = (m) => (JA ? `${mag(m)}等` : `mag ${mag(m)}`);
+  const fShort = (f) => (JA ? f.short : f.shortEn || f.short);
+  let sel = null, satSel = null, aimObj = null, aimTarget = null, satPts = [], starPts = [], plPtsLast = [], lastCard = 0, arTarget = null;
   const root = $('ar'), cv = $('arc'), ctx = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1, on = false, raf = 0;
   let fov = 62; // vertical field of view, degrees
@@ -40,7 +44,10 @@ export function createAR(deps) {
   let target = null; // smoothed toward
   let look = { alt: 35, az: 180 }; // manual mode
   let wake = null;
-  let userOffset = (() => { try { return +localStorage.getItem('zenith.azfix') || 0; } catch (e) { return 0; } })();
+  // manual compass nudge: small (±20°), for this session only. Before v20 it was saved and unbounded,
+  // so an accidental sideways swipe could turn the whole sky by a large angle for good.
+  let userOffset = 0;
+  try { localStorage.removeItem('zenith.azfix'); } catch (e) { }
   function calNeeded(on) { const el = $('ar-cal'); if (el) el.hidden = !on; }
 
   function resize() {
@@ -87,13 +94,13 @@ export function createAR(deps) {
     try {
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         const r = await DeviceOrientationEvent.requestPermission();
-        if (r !== 'granted') { hint('センサーの使用が許可されませんでした。指でドラッグして見回せます。'); return; }
+        if (r !== 'granted') { hint(t('arDenied')); return; }
       }
       addEventListener('deviceorientationabsolute', onAbs);
       addEventListener('deviceorientation', onRel);
-      hint('スマホを空にかざしてください');
-      setTimeout(() => { if (!sensor) hint('向きのセンサーが見つかりません。指でドラッグして見回せます。'); }, 2500);
-    } catch (e) { hint('センサーを使えませんでした。指でドラッグして見回せます。'); }
+      hint(t('arHold'));
+      setTimeout(() => { if (!sensor) hint(t('arNoSensor')); }, 2500);
+    } catch (e) { hint(t('arSensorFail')); }
     $('ar-perm').hidden = true;
   }
 
@@ -105,14 +112,13 @@ export function createAR(deps) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
     const k = fov / H;
     if (sensor) { // sensors drive the view; a horizontal drag nudges the compass by hand
-      if (Math.abs(dx) > Math.abs(dy)) { userOffset = ((drag.fix ?? (drag.fix = userOffset)) + dx * k + 540) % 360 - 180; showFix(); }
+      if (Math.abs(dx) > 16 && Math.abs(dx) > 2 * Math.abs(dy)) { userOffset = Math.max(-20, Math.min(20, (drag.fix ?? (drag.fix = userOffset)) + (dx - Math.sign(dx) * 16) * k)); showFix(); }
       return;
     }
     look.az = (drag.az - dx * k + 360) % 360;
     look.alt = Math.max(-10, Math.min(90, drag.alt + dy * k));
   });
   cv.addEventListener('pointerup', e => {
-    if (drag && drag.fix != null) { try { localStorage.setItem('zenith.azfix', String(userOffset)); } catch (er) { } }
     if (drag && drag.moved < 6) tap(e.clientX, e.clientY);
     drag = null;
   });
@@ -125,18 +131,16 @@ export function createAR(deps) {
     const f = (H / 2) / Math.tan(fov * D2R / 2);
     return norm(cam.v.map((v, i) => v + (x - W / 2) / f * cam.r[i] - (y - H / 2) / f * cam.u[i]));
   }
+  // A deliberate tap on something (satellite, planet, Moon, named star) opens its card.
+  // Tapping empty sky does nothing (closes an open card); constellations open from the reticle label.
   function tap(x, y) {
-    // a satellite under the finger (or under the reticle when tapping near the centre) wins
-    let best = null;
-    for (const q of satPts) { const dd = Math.hypot(q.x - x, q.y - y); if (dd < 34 && (!best || dd < best.d)) best = { d: dd, sat: q.sat }; }
-    if (!best && aimObj && aimObj.sat && Math.hypot(x - W / 2, y - H / 2) < 70) best = { sat: aimObj.sat };
-    if (best) { openSat(best.sat); return; }
-    if (satSel) { closeSat(); return; }
-    const d = screenDir(x, y);
-    const h = altaz(d);
-    const eq = horToEq(new Date(st.t), st.place, h.alt, h.az);
-    const id = conAt(eq.ra, eq.dec);
-    if (id) focusCon(id);
+    let best = null, bd = Infinity;
+    const consider = (list, rad, get) => { for (const q of list) { const dd = Math.hypot(q.x - x, q.y - y); if (dd < rad && dd < bd) { bd = dd; best = get(q); } } };
+    consider(satPts, 34, q => q.train ? { kind: 'train', g: q.train } : { kind: 'sat', sat: q.sat });
+    consider(plPtsLast, 34, q => q.o);
+    if (!best) consider(starPts, 24, q => ({ kind: 'star', i: q.i }));
+    if (best) { openObj(best); return; }
+    if (sel) closeObj();
   }
 
   // ---------- drawing ----------
@@ -218,6 +222,7 @@ export function createAR(deps) {
     const zoom = Math.max(0.8, Math.min(2.2, 62 / fov));
     const lm = sky.lm;
     const labels = [];
+    starPts = [];
     for (let i = 0; i < DATA.stars.length; i++) {
       const s = DATA.stars[i]; if (s[2] > lm) break;
       const h = map(s[0], s[1]); if (h.alt < -1) continue;
@@ -232,7 +237,8 @@ export function createAR(deps) {
       if (rad > 2) { const gg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], rad * 3); gg.addColorStop(0, rgb(c, a * 0.45)); gg.addColorStop(1, rgb(c, 0)); ctx.fillStyle = gg; ctx.fillRect(p[0] - rad * 3, p[1] - rad * 3, rad * 6, rad * 6); }
       ctx.fillStyle = rgb(c, a); ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
       const inf = DATA.info[i];
-      if (inf && ((DATA.cons[s[4]] && DATA.cons[s[4]].id === active && s[2] < 3.6) || s[2] < 1.5)) labels.push([p[0], p[1], inf[1] && /[぀-ヿ一-鿿]/.test(inf[1]) ? inf[1] : (inf[0] || inf[1])]);
+      if (inf) starPts.push({ x: p[0], y: p[1], i });
+      if (inf && ((DATA.cons[s[4]] && DATA.cons[s[4]].id === active && s[2] < 3.6) || s[2] < 1.5)) labels.push([p[0], p[1], starLabel(i)]);
     }
     ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = 'rgba(232,230,222,.85)'; ctx.textAlign = 'left';
     for (const [x, y, t] of labels) ctx.fillText(t, x + 8, y - 6);
@@ -241,7 +247,7 @@ export function createAR(deps) {
     if (active && active !== aimCon) {
       const c0 = DATA.cons.find(c => c.id === active);
       const h = map(c0.lab[0], c0.lab[1]); const p = PA(h.alt, h.az);
-      if (p) { ctx.font = '700 20px "Shippori Mincho", serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)'; ctx.fillText(c0.ja, p[0], p[1] + 26); ctx.textAlign = 'left'; }
+      if (p) { ctx.font = '700 20px "Shippori Mincho", serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)'; ctx.fillText(conName(c0), p[0], p[1] + 26); ctx.textAlign = 'left'; }
     }
 
     // meteor radiants
@@ -250,7 +256,7 @@ export function createAR(deps) {
       const h = map(sh.ra, sh.dec); const p = PA(h.alt, h.az); if (!p || h.alt < 0) continue;
       ctx.strokeStyle = 'rgba(242,196,109,.8)'; ctx.lineWidth = 1.2;
       for (let q = 0; q < 8; q++) { const an = q * Math.PI / 4; ctx.beginPath(); ctx.moveTo(p[0] + Math.cos(an) * 9, p[1] + Math.sin(an) * 9); ctx.lineTo(p[0] + Math.cos(an) * 20, p[1] + Math.sin(an) * 20); ctx.stroke(); }
-      ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(sh.ja + 'の放射点', p[0] + 24, p[1] + 4);
+      ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('arRadiant', showerName(sh)), p[0] + 24, p[1] + 4);
     }
 
     // planets, Moon, Sun
@@ -260,8 +266,8 @@ export function createAR(deps) {
       const h = S.bodyAltAz(pl.body, d, obs); if (h.alt < -1) continue; const p = PA(h.alt, h.az); if (!p) continue;
       const m = A.Illumination(pl.body, d).mag; const rad = Math.max(2, Math.min(6, 3 - m * 0.6)) * zoom;
       ctx.fillStyle = 'rgba(255,236,200,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,226,170,.95)'; ctx.fillText(`${pl.ja} ${mag(m)}等`, p[0] + 10, p[1] + 4);
-      plPts.push({ name: pl.ja, body: pl.body, m, x: p[0], y: p[1] });
+      ctx.fillStyle = 'rgba(255,226,170,.95)'; ctx.fillText(`${planetName(pl)} ${magL(m)}`, p[0] + 10, p[1] + 4);
+      plPts.push({ name: planetName(pl), body: pl.body, m, x: p[0], y: p[1], o: { kind: 'planet', body: pl.body, ja: pl.ja, en: pl.en } });
     }
     const mh = S.bodyAltAz(A.Body.Moon, d, obs);
     const mp = PA(mh.alt, mh.az);
@@ -278,9 +284,10 @@ export function createAR(deps) {
       ctx.fillStyle = 'rgba(40,44,56,.95)'; ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
       const kx = 2 * ill - 1; ctx.fillStyle = '#eef0f4'; ctx.beginPath(); ctx.arc(0, 0, rr, -Math.PI / 2, Math.PI / 2, false); ctx.ellipse(0, 0, Math.abs(kx) * rr, rr, 0, Math.PI / 2, -Math.PI / 2, kx > 0); ctx.fill();
       ctx.restore();
-      ctx.fillStyle = 'rgba(230,234,242,.9)'; ctx.fillText(`月 · 輝面比${Math.round(ill * 100)}%`, mp[0] + rr + 8, mp[1] + 4);
+      ctx.fillStyle = 'rgba(230,234,242,.9)'; ctx.fillText(t('arMoonLabel', Math.round(ill * 100)), mp[0] + rr + 8, mp[1] + 4);
+      plPts.push({ name: t('moon'), body: A.Body.Moon, m: A.Illumination(A.Body.Moon, d).mag, x: mp[0], y: mp[1], o: { kind: 'moon', body: A.Body.Moon, ja: '月' } });
     }
-    if (sun.alt > -1) { const p = PA(sun.alt, sun.az); if (p) { const gg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 60); gg.addColorStop(0, 'rgba(255,245,220,1)'); gg.addColorStop(1, 'rgba(255,220,160,0)'); ctx.fillStyle = gg; ctx.fillRect(p[0] - 60, p[1] - 60, 120, 120); ctx.fillStyle = '#ffd9a0'; ctx.fillText('太陽（直接見ないでください）', p[0] + 20, p[1] + 4); } }
+    if (sun.alt > -1) { const p = PA(sun.alt, sun.az); if (p) { const gg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 60); gg.addColorStop(0, 'rgba(255,245,220,1)'); gg.addColorStop(1, 'rgba(255,220,160,0)'); ctx.fillStyle = gg; ctx.fillRect(p[0] - 60, p[1] - 60, 120, 120); ctx.fillStyle = '#ffd9a0'; ctx.fillText(t('arSunLabel'), p[0] + 20, p[1] + 4); } }
 
     // satellites now: sunlit ones against a dark sky are drawn as stars; the stations always;
     // everything else above the horizon appears as a faint ring only near the centre, so it can be aimed at
@@ -295,8 +302,19 @@ export function createAR(deps) {
       const p = P(vec); if (!p) continue;
       if (vis) { ctx.fillStyle = '#f4f8ff'; ctx.beginPath(); ctx.arc(p[0], p[1], Math.max(2, 3 - lk.mag * 0.6) * zoom, 0, Math.PI * 2); ctx.fill(); }
       else { ctx.strokeStyle = feat || sel ? 'rgba(200,215,240,.7)' : 'rgba(180,200,235,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p[0], p[1], feat || sel ? 5 : 3.5, 0, Math.PI * 2); ctx.stroke(); }
-      if (feat) { ctx.fillStyle = '#f2c46d'; ctx.fillText(feat.short + (vis ? ` ${mag(lk.mag)}等` : '（地球の影の中）'), p[0] + 10, p[1] - 8); }
+      if (feat) { ctx.fillStyle = '#f2c46d'; ctx.fillText(fShort(feat) + (vis ? ` ${magL(lk.mag)}` : t('arInShadowL')), p[0] + 10, p[1] - 8); }
       satPts.push({ sat, lk, vis, x: p[0], y: p[1] });
+    }
+    // Starlink trains (bunched members only, sunlit against a dark sky)
+    if (TR) for (const c of TR.active(d)) {
+      let head = null;
+      for (const sat of c.members) {
+        const lk = S.satLook(sat, d, obs); if (!lk || lk.alt < 0 || !lk.sunlit || sun.alt > -6) continue;
+        const p = PA(lk.alt, lk.az); if (!p) continue;
+        ctx.fillStyle = 'rgba(236,244,255,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], 2 * zoom, 0, Math.PI * 2); ctx.fill();
+        if (!head) head = p;
+      }
+      if (head) { ctx.fillStyle = 'rgba(236,244,255,.85)'; ctx.fillText(t('trainShort'), head[0] + 10, head[1] - 8); satPts.push({ train: c.g.id, x: head[0], y: head[1] }); }
     }
     // the selected satellite: its path for the next few minutes, with a marker on "now"
     if (satSel) {
@@ -310,13 +328,17 @@ export function createAR(deps) {
         prev = q;
       }
       ctx.stroke(); ctx.setLineDash([]);
-      const me = satPts.find(q => q.sat.id === satSel.id);
+      const me = satPts.find(q => q.sat && q.sat.id === satSel.id);
       if (me) {
         ctx.strokeStyle = '#f2c46d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(me.x, me.y, 14, 0, Math.PI * 2); ctx.stroke();
         if (tip) { const an = Math.atan2(tip[1] - me.y, tip[0] - me.x); ctx.save(); ctx.translate(me.x + Math.cos(an) * 22, me.y + Math.sin(an) * 22); ctx.rotate(an); ctx.fillStyle = '#f2c46d'; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -5); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.restore(); }
       }
-      if (performance.now() - lastCard > 500) { renderSat(d, obs, sun.alt); lastCard = performance.now(); }
     }
+
+    plPtsLast = plPts;
+    if (sel && performance.now() - lastCard > (sel.kind === 'sat' ? 500 : 1500)) { renderCard(d); lastCard = performance.now(); }
+    // search target: a ring when in view, otherwise an arrow at the edge pointing the way
+    if (arTarget) drawTarget(d, P, cx, cy);
 
     // horizon line, ground shade, compass ticks
     ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(190,205,235,.55)';
@@ -342,24 +364,28 @@ export function createAR(deps) {
     guide(d, P, f, cx, cy);
 
     // reticle readout
-    const where = `${dir(look.az)} ${Math.round(look.az)}° · 高度 ${Math.round(look.alt)}°`;
+    const where = t('arWhere', dir(look.az), Math.round(look.az), Math.round(look.alt));
     $('ar-where').textContent = where;
     const lab = $('ar-aim');
     // nearest satellite or planet to the reticle, else the constellation
     const rad = 40;
     aimObj = null;
-    for (const q of satPts) { const dd = Math.hypot(q.x - cx, q.y - cy); if (dd < rad && (!aimObj || dd < aimObj.d)) aimObj = { d: dd, sat: q.sat, lk: q.lk, vis: q.vis }; }
+    for (const q of satPts) { if (q.train) continue; const dd = Math.hypot(q.x - cx, q.y - cy); if (dd < rad && (!aimObj || dd < aimObj.d)) aimObj = { d: dd, sat: q.sat, lk: q.lk, vis: q.vis }; }
     if (!aimObj) for (const q of plPts) { const dd = Math.hypot(q.x - cx, q.y - cy); if (dd < rad && (!aimObj || dd < aimObj.d)) aimObj = { d: dd, pl: q }; }
+    aimTarget = null;
     if (aimObj && aimObj.sat) {
       const feat = S.FEATURED[aimObj.sat.id], info = describeSat(aimObj.sat, feat);
-      const nm = feat ? feat.short : (info.ja || aimObj.sat.name);
-      const state = aimObj.vis ? `${mag(aimObj.lk.mag)}等で見えています` : !aimObj.lk.sunlit ? '地球の影の中' : '空が明るく見えません';
-      lab.innerHTML = `<b>${esc(nm)}</b><span>${esc(info.kind)} · 高度${Math.round(aimObj.lk.height)}km · ${state}</span><span>タップで詳しく</span>`;
+      const nm = feat ? fShort(feat) : (info.ja || aimObj.sat.name);
+      const state = aimObj.vis ? t('arSatSeen', mag(aimObj.lk.mag)) : !aimObj.lk.sunlit ? t('arSatShadow') : t('arSatBright');
+      lab.innerHTML = `<b>${esc(nm)}</b><span>${esc(t('arSatLine', info.kind, Math.round(aimObj.lk.height), state))}</span><span class="more">${t('arMore')}</span>`;
+      aimTarget = { kind: 'sat', sat: aimObj.sat };
     } else if (aimObj && aimObj.pl) {
       const km = A.GeoVector(aimObj.pl.body, d, true).Length() * A.KM_PER_AU;
-      lab.innerHTML = `<b>${esc(aimObj.pl.name)}</b><span>${mag(aimObj.pl.m)}等 · 地球から${km >= 1e8 ? (km / 1e8).toFixed(1) + '億' : Math.round(km / 1e4) + '万'}km · 光で${km / 299792.458 >= 3600 ? Math.floor(km / 299792.458 / 3600) + '時間' + Math.round(km / 299792.458 % 3600 / 60) + '分' : Math.round(km / 299792.458 / 60) + '分'}</span>`;
-    } else if (aimCon) { const c = DATA.cons.find(c => c.id === aimCon); lab.innerHTML = `<b>${esc(c.ja)}</b><span>タップで詳しく</span>`; }
+      lab.innerHTML = `<b>${esc(aimObj.pl.name)}</b><span>${t('arPlLine', mag(aimObj.pl.m), kmText(km))}</span><span class="more">${t('arMore')}</span>`;
+      aimTarget = aimObj.pl.o;
+    } else if (aimCon) { const c = DATA.cons.find(c => c.id === aimCon); lab.innerHTML = `<b>${esc(conName(c))}</b><span class="more">${t('arMore')}</span>`; aimTarget = { kind: 'con', id: aimCon }; }
     else lab.innerHTML = '';
+    lab.classList.toggle('go', !!aimTarget);
     const acc = compassAcc;
     $('ar-acc').hidden = !(sensor && typeof acc === 'number' && (acc < 0 || acc > 20));
   }
@@ -370,12 +396,12 @@ export function createAR(deps) {
     const el = $('ar-guide');
     if (!p) { el.hidden = true; return; }
     let alt, az, txt;
-    const name = S.FEATURED[p.sat.id].short;
+    const name = fShort(S.FEATURED[p.sat.id]);
     if (now >= p.start.t) {
-      const lk = S.satLook(p.sat, d, st.place); alt = lk.alt; az = lk.az; txt = `${name} 通過中 · ${mag(lk.mag)}等`;
+      const lk = S.satLook(p.sat, d, st.place); alt = lk.alt; az = lk.az; txt = t('arGuideNow', name, mag(lk.mag));
     } else {
       alt = p.start.alt; az = p.start.az;
-      const s = Math.round((p.start.t - now) / 1000); txt = `${name} あと${s >= 60 ? Math.floor(s / 60) + '分' : ''}${s % 60}秒 · ${dir(az)}から`;
+      const s = Math.round((p.start.t - now) / 1000); txt = t('arGuideSoon', name, s >= 60 ? Math.floor(s / 60) : 0, s % 60, dir(az));
     }
     el.hidden = false; el.querySelector('span').textContent = txt;
     // draw the predicted track
@@ -393,52 +419,45 @@ export function createAR(deps) {
     }
   }
 
-  // ---------- satellite card ----------
-  function openSat(sat) {
-    satSel = sat; lastCard = 0;
+  // ---------- card (shared renderer) ----------
+  const card = $('ar-sat');
+  const cardHandlers = { con: (id) => { closeObj(); focusCon(id); }, pass: () => { } };
+  function openObj(o) {
+    sel = o; satSel = o.kind === 'sat' ? o.sat : null; lastCard = 0;
     const c = $('card'); if (c) c.hidden = true; st.focusCon = null;
-    $('ar-sat').hidden = false; root.classList.add('sat-open'); renderSat(new Date(st.t), st.place, S.bodyAltAz(A.Body.Sun, new Date(st.t), st.place).alt);
+    card.hidden = false; root.classList.add('sat-open'); card.scrollTop = 0;
+    renderCard(new Date(st.t));
   }
-  function closeSat() { satSel = null; $('ar-sat').hidden = true; root.classList.remove('sat-open'); }
-  function renderSat(d, obs, sunAlt) {
-    const sat = satSel; if (!sat) return;
-    const feat = S.FEATURED[sat.id], info = describeSat(sat, feat), o = orbitOf(sat);
-    const lk = S.satLook(sat, d, obs);
-    const up = lk && lk.alt >= 0;
-    let state;
-    if (!up) state = '地平線の下';
-    else if (!lk.sunlit) state = '地球の影の中（いまは見えません）';
-    else if (sunAlt > -6) state = '空が明るく、いまは見えません';
-    else state = `<b>${mag(lk.mag)}等</b>で見えています`;
-    const now = d.getTime();
-    const cur = st.passes.find(p => p.sat.id === sat.id && p.start.t <= now && p.end.t >= now);
-    const nx = st.passes.find(p => p.sat.id === sat.id && p.start.t > now);
-    const age = (now - sat.epoch.getTime()) / 864e5;
-    const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
-    $('ar-sat-kind').textContent = info.kind;
-    $('ar-sat-name').textContent = feat ? feat.ja : (info.ja || sat.name);
-    $('ar-sat-raw').textContent = `${feat || info.ja ? sat.name + ' · ' : ''}NORAD ${sat.id}${o.cospar ? ' · 国際標識 ' + o.cospar : ''}`;
-    $('ar-sat-note').textContent = info.note;
-    $('ar-sat-note').hidden = !info.note;
-    $('ar-sat-now').innerHTML = up
-      ? `いま <b>${dir(lk.az)}の空、高度${Math.round(lk.alt)}°</b> · ${state}`
-      : `いまは${state}です`;
-    $('ar-sat-facts').innerHTML = [
-      lk ? row('地上からの高さ', `${Math.round(lk.height).toLocaleString()} km`) : '',
-      lk && up ? row('ここからの距離', `${Math.round(lk.range).toLocaleString()} km`) : '',
-      row('速さ', `秒速${o.speed.toFixed(1)} km（時速約${(Math.round(o.speed * 36) * 100).toLocaleString()} km）`),
-      row('地球を1周', `${o.period.toFixed(1)} 分（1日に${o.revs.toFixed(1)}周）`),
-      row('軌道の高さ', Math.abs(o.apogee - o.perigee) < 30 ? `約${Math.round((o.apogee + o.perigee) / 2)} km` : `${Math.round(o.perigee)}〜${Math.round(o.apogee)} km`),
-      row('軌道の傾き', `${o.inc.toFixed(1)}°`),
-      o.launchYear ? row('打ち上げ', `${o.launchYear}年`) : '',
-      cur ? row('いまの通過', `${hm(new Date(cur.end.t))}まで · ${dir(cur.end.az)}へ${cur.end.alt > 12 ? '（地球の影に入って消える）' : ''}`) : '',
-      row('次に見える通過', nx ? `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))} ${dir(nx.start.az)}から · 最大${Math.round(nx.max.alt)}° · ${mag(nx.mag)}等` : '予報の範囲にはありません'),
-      row('軌道データ', `${age < 1 ? Math.max(1, Math.round(age * 24)) + '時間' : age.toFixed(1) + '日'}前のもの`),
-    ].join('');
+  function closeObj() { sel = null; satSel = null; card.hidden = true; root.classList.remove('sat-open'); }
+  function renderCard(d) { if (sel) OI.render(card, sel, d, cardHandlers); }
+  $('ar-sat-close').addEventListener('click', closeObj);
+  $('ar-aim').addEventListener('click', () => {
+    if (!aimTarget) return;
+    if (aimTarget.kind === 'con') { closeObj(); focusCon(aimTarget.id); }
+    else openObj(aimTarget);
+  });
+  function setTarget(o) { arTarget = o; if (o.kind !== 'con') openObj(o); hint(t('arGuideTo', OI.nameOf(o))); }
+  function drawTarget(d, P, cx, cy) {
+    const p = OI.posOf(arTarget, d); if (!p) return;
+    const vec = enu(p.alt, p.az), q = P(vec);
+    const name = OI.nameOf(arTarget) + (p.alt < 0 ? t('belowTag') : '');
+    ctx.font = '600 13px "Zen Kaku Gothic New", sans-serif';
+    if (q && q[0] > 30 && q[0] < W - 30 && q[1] > 70 && q[1] < H - 70) {
+      const k = 0.5 + 0.5 * Math.sin(performance.now() / 350);
+      ctx.strokeStyle = `rgba(242,196,109,${0.6 + 0.4 * k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(q[0], q[1], 20 + 4 * k, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#f2c46d'; ctx.textAlign = 'center'; ctx.fillText(name, q[0], q[1] - 32); ctx.textAlign = 'left';
+      return;
+    }
+    // off screen: arrow on a ring around the centre
+    const x = dot(vec, cam.r), y = dot(vec, cam.u), z = dot(vec, cam.v);
+    let ang = Math.atan2(-y, x); if (z < 0 && Math.hypot(x, y) < 1e-3) ang = Math.PI / 2;
+    const rr = Math.min(W, H) * 0.38, ax = cx + Math.cos(ang) * rr, ay = cy + Math.sin(ang) * rr;
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang); ctx.fillStyle = '#f2c46d';
+    ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-6, -11); ctx.lineTo(-2, 0); ctx.lineTo(-6, 11); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#f2c46d'; ctx.textAlign = 'center'; ctx.fillText(name, ax - Math.cos(ang) * 30, ay - Math.sin(ang) * 30 + 4); ctx.textAlign = 'left';
   }
-  $('ar-sat-close').addEventListener('click', closeSat);
 
-  function showFix() { const n = $('ar-fov'); n.textContent = `方位の補正 ${userOffset >= 0 ? '+' : ''}${userOffset.toFixed(1)}° · 月や明るい星に合わせて左右にずらす`; n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, 2500); }
+  function showFix() { const n = $('ar-fov'); n.textContent = t('arFix', (userOffset >= 0 ? '+' : '') + userOffset.toFixed(1)); n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, 2500); }
   function hint(t) { const h = $('ar-hint'); h.textContent = t; h.hidden = !t; clearTimeout(hint.t); if (t) hint.t = setTimeout(() => { h.hidden = true; }, 5000); }
 
   function frame() { if (!on) return; draw(); raf = requestAnimationFrame(frame); }
@@ -448,31 +467,31 @@ export function createAR(deps) {
     const needsTap = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
     if (needsTap) { $('ar-perm').hidden = false; }
     else if ('DeviceOrientationEvent' in window && matchMedia('(pointer: coarse)').matches) enableSensors();
-    else hint('ドラッグで見回し、ホイールで拡大できます。スマホではかざすだけで動きます。');
+    else hint(t('arDesk'));
     try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; }
   }
   function close() {
-    cameraOff(); closeSat();
+    cameraOff(); closeObj(); arTarget = null;
     on = false; root.hidden = true; document.body.classList.remove('ar-on'); cancelAnimationFrame(raf);
     removeEventListener('deviceorientationabsolute', onAbs); removeEventListener('deviceorientation', onRel);
-    sensor = false; headingOffset = null; calNeeded(false);
+    sensor = false; headingOffset = null; userOffset = 0; calNeeded(false);
     try { wake && wake.release(); } catch (e) { } wake = null;
   }
   $('ar-perm').addEventListener('click', enableSensors);
   $('ar-close').addEventListener('click', close);
   // ---------- camera background ----------
-  function fovNote() { const n = $('ar-fov'); n.textContent = `視野 ${fov.toFixed(0)}° · 2本指で星と景色を合わせる`; n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, 2500); }
+  function fovNote() { const n = $('ar-fov'); n.textContent = t('arFov', fov.toFixed(0)); n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, 2500); }
   async function cameraOn() {
     const btn = $('ar-cam');
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { hint('この画面ではカメラを使えません（公開したサイトで使えます）'); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { hint(t('arCamNo')); return; }
     try {
       cam0 = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       const v = $('ar-video'); v.srcObject = cam0; v.hidden = false; await v.play().catch(() => { });
       fov = loadCamFov(); btn.setAttribute('aria-pressed', 'true'); root.classList.add('cam');
-      hint('星の位置と景色がずれていたら、2本指で拡大・縮小して合わせてください');
+      hint(t('arCamHint'));
     } catch (e) {
       cam0 = null; btn.setAttribute('aria-pressed', 'false');
-      hint(e && e.name === 'NotAllowedError' ? 'カメラの使用が許可されませんでした。設定から許可できます。' : 'カメラを起動できませんでした');
+      hint(e && e.name === 'NotAllowedError' ? t('arCamDenied') : t('arCamFail'));
     }
   }
   function cameraOff() {
@@ -484,5 +503,5 @@ export function createAR(deps) {
   $('ar-red').addEventListener('click', () => { const r = root.classList.toggle('red'); $('ar-red').setAttribute('aria-pressed', String(r)); });
   addEventListener('resize', () => { if (on) resize(); });
   document.addEventListener('visibilitychange', async () => { if (on && document.visibilityState === 'visible' && navigator.wakeLock) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { } } });
-  return { open, close, isOn: () => on, _look: (alt, az) => { look = { alt, az }; } };
+  return { open, close, isOn: () => on, setTarget, _look: (alt, az) => { look = { alt, az }; } };
 }

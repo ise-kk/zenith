@@ -217,20 +217,48 @@ textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);b
 #ar-acc{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);color:var(--gold)}
 .ar-veil{position:absolute;inset:0;pointer-events:none;background:#ff1a00;mix-blend-mode:multiply;opacity:0;transition:opacity .3s}
 #ar.red .ar-veil{opacity:1}
-#ar-sat{position:absolute;z-index:6;left:0;right:0;bottom:0;max-height:40vh;max-height:40dvh;overflow:auto;background:rgba(7,10,17,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line-hi);border-bottom:0;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
-#ar-sat > *{flex-shrink:0}
+.ocard{background:rgba(7,10,17,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line-hi);display:flex;flex-direction:column;gap:10px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.ocard > *{flex-shrink:0}
+.ocard .oc-name{margin:-4px 0 0;font-family:var(--display);font-size:26px;line-height:1.25;padding-right:34px}
+.ocard .oc-sub{font-size:11.5px;color:var(--faint);margin-top:-6px}
+.ocard .oc-now{margin:0;font-size:13px;padding:9px 12px;border-radius:10px;background:var(--gold-dim);line-height:1.7}
+.ocard .oc-now b{color:var(--gold);font-weight:500}
+.ocard .oc-lead{margin:0;font-size:13px;line-height:1.75;color:#d7dce6}
+.ocard .oc-facts{margin:0;display:flex;flex-direction:column}
+.ocard .oc-facts div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.ocard .oc-facts dt{color:var(--muted);flex:none}
+.ocard .oc-facts dd{margin:0;text-align:right}
+.ocard .oc-facts small{display:block;color:var(--faint);font-size:11px}
+.ocard .oc-actions{display:flex;flex-wrap:wrap;gap:6px}
+.oc-btn{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line-hi);color:var(--ink);font-size:12.5px;text-decoration:none}
+.oc-btn:hover{border-color:var(--gold)}
+.oc-close{position:absolute;right:10px;top:8px;width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:18px}
+#ocard{position:absolute;left:18px;top:64px;bottom:16px;width:340px;border-radius:14px;padding:20px 20px 18px;z-index:4}
+#ar-sat{position:absolute;z-index:6;left:0;right:0;bottom:0;max-height:40vh;max-height:40dvh;border-bottom:0;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px))}
 #ar.sat-open #ar-aim,#ar.sat-open #ar-guide{display:none}
-#ar-sat h2{margin:-4px 0 0;font-family:var(--display);font-size:26px;line-height:1.25;padding-right:34px}
-#ar-sat-raw{font-size:11px;color:var(--faint);margin-top:-6px}
-#ar-sat-now{margin:0;font-size:13px;padding:9px 12px;border-radius:10px;background:var(--gold-dim);line-height:1.7}
-#ar-sat-now b{color:var(--gold);font-weight:500}
-#ar-sat-note{margin:0;font-size:13px;line-height:1.75;color:#d7dce6}
-#ar-sat-facts{margin:0;display:flex;flex-direction:column}
-#ar-sat-facts div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
-#ar-sat-facts dt{color:var(--muted);flex:none}
-#ar-sat-facts dd{margin:0;text-align:right}
-#ar-sat-close{position:absolute;right:10px;top:8px;width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:18px}
 @media (orientation:landscape) and (max-height:600px){#ar-sat{left:auto;top:0;width:min(340px,45vw);max-height:none;border-radius:0;border-width:0 0 0 1px;padding-top:calc(14px + env(safe-area-inset-top,0px));padding-right:calc(18px + env(safe-area-inset-right,0px))}}
+.chip.icon{width:32px;padding:0;display:inline-grid;place-items:center}
+#find{position:fixed;inset:0;z-index:90;background:rgba(2,4,9,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;justify-content:center;align-items:flex-start;padding:calc(12px + env(safe-area-inset-top,0px)) 12px 12px}
+.find-panel{width:min(520px,100%);max-height:80vh;display:flex;flex-direction:column;background:rgba(8,11,19,.97);border:1px solid var(--line-hi);border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.find-box{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border-bottom:1px solid var(--line);color:var(--muted)}
+#find-q{flex:1;min-width:0;height:36px;background:transparent;border:0;color:var(--ink);font-size:16px;outline:none}
+#find-close{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);color:var(--muted);font-size:12.5px}
+#find-list{list-style:none;margin:0;padding:6px;overflow:auto}
+#find-list button{width:100%;display:grid;grid-template-columns:3.6em 1fr auto;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;text-align:left}
+.fn{display:flex;flex-direction:column;min-width:0}
+.ft{font-size:11px;color:var(--faint);white-space:nowrap;text-align:right}
+.find-cats{display:flex;gap:6px;padding:10px 12px 2px;overflow-x:auto;scrollbar-width:none;flex:none}
+.find-cats::-webkit-scrollbar{display:none}
+.find-cats button{flex:none;height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line-hi);color:var(--muted);font-size:12.5px}
+.find-cats button[aria-pressed="true"]{background:var(--ink);color:var(--night);border-color:var(--ink)}
+#find-list button:hover,#find-list button:focus-visible{background:rgba(255,255,255,.05)}
+#find-list b{font-weight:500;font-size:14.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fk{font-size:10.5px;color:var(--gold);letter-spacing:.02em;line-height:1.3}
+.fw{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.find-h{font-size:10.5px;color:var(--faint);letter-spacing:.2em;padding:8px 10px 4px}
+.find-empty{font-size:13px;color:var(--muted);padding:14px 10px}
+#ar-aim.go{pointer-events:auto;cursor:pointer;padding:6px 12px;border-radius:12px;background:rgba(6,9,16,.55)}
+#ar-aim .more{color:var(--gold);font-size:11.5px}
 body.ar-on #card{position:fixed;z-index:70;left:0;right:0;bottom:0;top:auto;width:auto;max-height:55vh;border-radius:18px 18px 0 0}
 body.ar-on #tip{display:none}
 @media (max-width:430px){#ar-where{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}}
@@ -267,7 +295,7 @@ body.ar-on #tip{display:none}
   #sheet-close{height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line-hi);font-size:13px;color:var(--ink)}
   .sheet-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 18px calc(24px + env(safe-area-inset-bottom,0px));gap:20px}
   .legend{display:none}
-  #card{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;border-radius:18px 18px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20}
+  #card,#ocard{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;border-radius:18px 18px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20}
   .stage-meta{left:12px;top:8px}
   #sky-state{font-size:16px}
   .stage-tools{right:10px;top:8px}
@@ -299,152 +327,176 @@ body.ar-on #tip{display:none}
   .stage-tools{right:10px;top:6px}
   #headline{font-size:17px;line-height:1.5}
   /* constellation card takes over the right column instead of covering the sky */
-  #card{position:fixed;left:auto;right:0;top:0;bottom:0;width:min(340px,42vw);box-sizing:border-box;border-radius:0;border-width:0 0 0 1px;background:rgba(7,10,17,.97);padding:calc(14px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 16px;z-index:20}
+  #card,#ocard{position:fixed;left:auto;right:0;top:0;bottom:0;width:min(340px,42vw);box-sizing:border-box;border-radius:0;border-width:0 0 0 1px;background:rgba(7,10,17,.97);padding:calc(14px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 16px;z-index:20}
   #card h2{font-size:26px}
 }
+.langsel{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.langsel select{height:30px;font-size:12.5px}
+.k-train .tt{color:var(--sat)}
+.k-train button::before{background:var(--sat);border-color:var(--sat);box-shadow:0 0 0 2px rgba(223,233,255,.2)}
+#share-toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);z-index:95;background:rgba(8,11,19,.95);border:1px solid var(--line-hi);border-radius:18px;padding:8px 16px;font-size:13px;color:var(--ink);pointer-events:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
 <div class="app">
   <header>
-    <div class="brand"><b>ZENITH</b><span>今夜の空</span></div>
-    <label class="field" for="place">観測地
+    <div class="brand"><b>ZENITH</b><span data-t="tagline">今夜の空</span></div>
+    <label class="field" for="place"><span data-t="place">観測地</span>
       <select id="place"></select>
     </label>
-    <button type="button" class="chip" id="geo">現在地</button>
+    <button type="button" class="chip" id="geo" data-t="here">現在地</button>
     <form id="custom" hidden>
-      <input id="lat" inputmode="decimal" aria-label="緯度" placeholder="緯度">
-      <input id="lon" inputmode="decimal" aria-label="経度" placeholder="経度">
-      <button type="submit">設定</button>
+      <input id="lat" inputmode="decimal" aria-label="緯度" placeholder="緯度" data-t-aria="lat" data-t-ph="lat">
+      <input id="lon" inputmode="decimal" aria-label="経度" placeholder="経度" data-t-aria="lon" data-t-ph="lon">
+      <button type="submit" data-t="set">設定</button>
       <span id="custom-err"></span>
     </form>
-    <label class="field" for="skysel">空の暗さ
+    <label class="field" for="skysel"><span data-t="skyDark">空の暗さ</span>
       <select id="skysel">
-        <option value="city">都市の空（4等星まで）</option>
-        <option value="suburb">郊外の空（5.5等星まで）</option>
-        <option value="dark">暗い空（6.5等星まで）</option>
+        <option value="city" data-t="skyCity">都市の空（4等星まで）</option>
+        <option value="suburb" data-t="skySuburb">郊外の空（5.5等星まで）</option>
+        <option value="dark" data-t="skyDarkOpt">暗い空（6.5等星まで）</option>
       </select>
     </label>
     <div class="clock"><span class="num"><span id="live-dot"></span><span id="clock">--:--:--</span></span><span id="clock-date"></span></div>
   </header>
 
   <div class="stage">
-    <canvas id="sky" aria-label="観測地から見上げた全天の星図。中心が天頂、外周が地平線、上が北、左が東"></canvas>
+    <canvas id="sky" data-t-aria="skyAria" aria-label="観測地から見上げた全天の星図。中心が天頂、外周が地平線、上が北、左が東"></canvas>
     <div class="stage-meta"><span class="k">NOW</span><span id="sky-state">夜</span></div>
     <div class="legend">
-      <span>星座にカーソルを合わせ、クリックで詳しく（スマホはタップ）</span>
-      <span><i class="f"></i>選んだ通過の軌跡</span>
-      <span><i></i>これから3時間の通過</span>
-      <span><i class="r"></i>流星群の放射点</span>
-      <span>中心が真上、円周が地平線。上が北・左が東（見上げた向き）</span>
+      <span data-t="lg1">星座にカーソルを合わせ、クリックで詳しく（スマホはタップ）</span>
+      <span><i class="f"></i><span data-t="lg2">選んだ通過の軌跡</span></span>
+      <span><i></i><span data-t="lg3">これから3時間の通過</span></span>
+      <span><i class="r"></i><span data-t="lg4">流星群の放射点</span></span>
+      <span data-t="lg5">中心が真上、円周が地平線。上が北・左が東（見上げた向き）</span>
     </div>
-    <div class="stage-tools"><button type="button" id="t-ar" class="chip ar-btn">かざす</button><button type="button" id="t-lines" class="chip" aria-pressed="false">星座線と名前</button></div>
+    <div class="stage-tools"><button type="button" id="t-find" class="chip icon" aria-label="探す" data-t-aria="find"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14" stroke-linecap="round"/></svg></button><button type="button" id="t-share" class="chip icon" aria-label="共有" data-t-aria="share"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10V2M5 4.8 8 2l3 2.8"/><path d="M4.5 7H3.5v7h9V7h-1"/></svg></button><button type="button" id="t-ar" class="chip ar-btn" data-t="ar">かざす</button><button type="button" id="t-lines" class="chip" aria-pressed="false" data-t="lines">星座線と名前</button></div>
     <article id="card" hidden>
-      <button type="button" id="card-close" aria-label="閉じる">×</button>
+      <button type="button" id="card-close" aria-label="閉じる" data-t-aria="close">×</button>
       <div class="kicker" id="card-kicker"></div>
       <h2 id="card-name"></h2>
       <div id="card-latin"></div>
       <p id="card-lead"></p>
       <p id="card-now"></p>
       <dl id="card-facts"></dl>
-      <h3 class="sec-h"><span>明るい星</span><span>光年</span></h3>
-      <div class="tbl"><table><thead><tr><th>名前</th><th>符号</th><th class="r">等級</th><th>スペクトル</th><th class="r">距離</th></tr></thead><tbody id="card-stars"></tbody></table></div>
-      <div id="card-mes-wrap"><h3 class="sec-h"><span>星雲・星団・銀河（メシエ天体）</span></h3><ul id="card-mes"></ul></div>
-      <div class="card-foot">星のデータ: HYG v4.1（ヒッパルコス衛星などの観測）。遠い星ほど距離の誤差が大きくなります。面積は星座境界から計算した値です。</div>
+      <h3 class="sec-h"><span data-t="brightStars">明るい星</span><span data-t="ly">光年</span></h3>
+      <div class="tbl"><table><thead><tr><th data-t="thName">名前</th><th data-t="thDesig">符号</th><th class="r" data-t="thMag">等級</th><th data-t="thSpec">スペクトル</th><th class="r" data-t="thDist">距離</th></tr></thead><tbody id="card-stars"></tbody></table></div>
+      <div id="card-mes-wrap"><h3 class="sec-h"><span data-t="messierH">星雲・星団・銀河（メシエ天体）</span></h3><ul id="card-mes"></ul></div>
+      <div class="card-foot" data-t="conFoot">星のデータ: HYG v4.1（ヒッパルコス衛星などの観測）。遠い星ほど距離の誤差が大きくなります。面積は星座境界から計算した値です。</div>
+    </article>
+    <article id="ocard" class="ocard" hidden>
+    <button type="button" class="oc-close" id="ocard-close" aria-label="閉じる" data-t-aria="close">×</button>
+    <div class="kicker oc-kind"></div>
+    <h2 class="oc-name"></h2>
+    <div class="oc-sub num"></div>
+    <p class="oc-now"></p>
+    <p class="oc-lead"></p>
+    <dl class="oc-facts"></dl>
+    <div class="oc-actions"></div>
+    <div class="card-foot oc-foot"></div>
     </article>
     <div id="tip" hidden></div>
   </div>
 
   <aside id="sheet">
-    <div class="sheet-head"><b>今夜の空</b><button type="button" id="sheet-close">空に戻る</button></div>
+    <div class="sheet-head"><b data-t="sheetTitle">今夜の空</b><button type="button" id="sheet-close" data-t="backToSky">空に戻る</button></div>
     <div class="sheet-body" id="sheet-body">
     <section>
       <div class="kicker">Tonight</div>
-      <p id="headline">今夜の空を計算しています</p>
+      <p id="headline" data-t="calcHead">今夜の空を計算しています</p>
       <div id="night-date"></div>
     </section>
     <details class="fold" data-fold="tonight" open>
-      <summary class="sec-h"><span>今夜の流れ</span><span id="calc" hidden></span></summary>
+      <summary class="sec-h"><span data-t="flow">今夜の流れ</span><span id="calc" hidden></span></summary>
       <ol id="tonight"></ol>
       <p id="faint-note"></p>
     </details>
     <details class="fold" data-fold="showers" open>
-      <summary class="sec-h"><span>次の流星群</span></summary>
+      <summary class="sec-h"><span data-t="showers">次の流星群</span></summary>
       <ul id="showers"></ul>
     </details>
     <details class="fold data" data-fold="data" open>
-      <summary class="sec-h" style="margin:0"><span>人工衛星の軌道データ</span></summary>
+      <summary class="sec-h" style="margin:0"><span data-t="orbitData">人工衛星の軌道データ</span></summary>
       <div id="data-state"></div>
-      <button type="button" class="btn primary" id="open-data">軌道データを入れる・更新する</button>
+      <button type="button" class="btn primary" id="open-data" data-t="addData">軌道データを入れる・更新する</button>
     </details>
-    <a class="solink" href="https://ise-kk.github.io/sol-atlas/" target="_blank" rel="noopener"><b>Sol Atlas</b><span>惑星を3Dで、いまの配置で見る</span><i>→</i></a>
-    <div class="foot">
-      星: HYG v4.1 (CC BY-SA 4.0) · 星座線・天の川: d3-celestial (BSD) · 天体暦: Astronomy Engine (MIT) · 衛星計算: satellite.js (SGP4) · 流星群: IMO標準値。衛星の明るさと流星数は目安です。時刻は日本時間。
-    </div>
+    <a class="solink" href="https://ise-kk.github.io/sol-atlas/" target="_blank" rel="noopener"><b>Sol Atlas</b><span data-t="solLink">惑星を3Dで、いまの配置で見る</span><i>→</i></a>
+    <div class="foot" id="foot-credits"></div>
+    <label class="langsel"><span data-t="language">言語</span> <select id="lang"></select></label>
     </div>
   </aside>
 
-  <button type="button" class="infobar" id="info-open" aria-label="今夜の情報を開く"><span id="peek">今夜の空を計算しています</span><span class="go">今夜の情報 ›</span></button>
+  <button type="button" class="infobar" id="info-open" aria-label="今夜の情報を開く" data-t-aria="openInfo"><span id="peek" data-t="calcHead">今夜の空を計算しています</span><span class="go" data-t="infoGo">今夜の情報 ›</span></button>
 
   <div class="timebar">
     <div class="rates">
-      <button type="button" id="now" aria-pressed="true">現在</button>
-      <button type="button" data-rate="0">停止</button>
+      <button type="button" id="now" aria-pressed="true" data-t="now">現在</button>
+      <button type="button" data-rate="0" data-t="stop">停止</button>
       <button type="button" data-rate="1">×1</button>
       <button type="button" data-rate="60">×60</button>
       <button type="button" data-rate="600">×600</button>
     </div>
-    <div id="scrub" role="slider" aria-label="今夜の時刻" tabindex="0"><div id="scrub-track"></div></div>
+    <div id="scrub" role="slider" aria-label="今夜の時刻" data-t-aria="scrubLabel" tabindex="0"><div id="scrub-track"></div></div>
   </div>
 </div>
 
 <div id="dlg" hidden>
   <form class="dlg" id="tle-form">
-    <div class="row"><h2>軌道データを入れる</h2><button type="button" id="dlg-close" aria-label="閉じる">閉じる</button></div>
+    <div class="row"><h2 data-t="dlgTitle">軌道データを入れる</h2><button type="button" id="dlg-close" data-t="close">閉じる</button></div>
     <ol>
-      <li>下のリンクを開きます（CelesTrakが公開している最新の軌道データです）。</li>
-      <li>表示された文字を<b>すべて選択してコピー</b>します（Ctrl+A → Ctrl+C）。</li>
-      <li>下の欄に<b>貼り付けて「読み込む」</b>を押します。2つとも入れると、ISS・天宮と明るい人工衛星がそろいます。</li>
+      <li data-t="dlg1">下のリンクを開きます（CelesTrakが公開している最新の軌道データです）。</li>
+      <li data-t="dlg2">表示された文字を<b>すべて選択してコピー</b>します（Ctrl+A → Ctrl+C）。</li>
+      <li data-t="dlg3">下の欄に<b>貼り付けて「読み込む」</b>を押します。2つとも入れると、ISS・天宮と明るい人工衛星がそろいます。</li>
     </ol>
     <div class="urls">
-      <div class="url"><a href="https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&amp;FORMAT=tle" target="_blank" rel="noopener">宇宙ステーション</a><code>celestrak.org/NORAD/elements/gp.php?GROUP=stations&amp;FORMAT=tle</code></div>
-      <div class="url"><a href="https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&amp;FORMAT=tle" target="_blank" rel="noopener">明るい人工衛星</a><code>celestrak.org/NORAD/elements/gp.php?GROUP=visual&amp;FORMAT=tle</code></div>
+      <div class="url"><a href="https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&amp;FORMAT=tle" target="_blank" rel="noopener" data-t="dlgStations">宇宙ステーション</a><code>celestrak.org/NORAD/elements/gp.php?GROUP=stations&amp;FORMAT=tle</code></div>
+      <div class="url"><a href="https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&amp;FORMAT=tle" target="_blank" rel="noopener" data-t="dlgBright">明るい人工衛星</a><code>celestrak.org/NORAD/elements/gp.php?GROUP=visual&amp;FORMAT=tle</code></div>
     </div>
     <textarea id="tle-text" spellcheck="false" placeholder="ISS (ZARYA)&#10;1 25544U 98067A   ...&#10;2 25544  51.6...&#10;"></textarea>
     <div id="tle-err"></div>
-    <div class="row"><button type="button" class="btn" id="tle-clear">保存したデータを消す</button><button type="submit" class="btn primary">読み込む</button></div>
-    <div class="foot">データはこのブラウザにだけ保存されます。軌道データは数日で古くなるため、週に1〜2回の更新をおすすめします。</div>
+    <div class="row"><button type="button" class="btn" id="tle-clear" data-t="dlgClear">保存したデータを消す</button><button type="submit" class="btn primary" data-t="dlgLoad">読み込む</button></div>
+    <div class="foot" data-t="dlgFoot">データはこのブラウザにだけ保存されます。軌道データは数日で古くなるため、週に1〜2回の更新をおすすめします。</div>
   </form>
 </div>
 
 <div id="ar" hidden>
   <video id="ar-video" playsinline muted autoplay hidden></video>
-  <canvas id="arc" aria-label="スマホを向けた方向の空"></canvas>
+  <canvas id="arc" aria-label="スマホを向けた方向の空" data-t-aria="arAria"></canvas>
   <div class="ar-top">
-    <button type="button" id="ar-close" class="chip">戻る</button>
+    <button type="button" id="ar-close" class="chip" data-t="back">戻る</button>
     <span id="ar-where" class="num"></span>
-    <span class="ar-btns"><button type="button" id="ar-cam" class="chip" aria-pressed="false">カメラ</button><button type="button" id="ar-red" class="chip" aria-pressed="false">赤色ライト</button></span>
+    <span class="ar-btns"><button type="button" id="ar-find" class="chip icon" aria-label="探す" data-t-aria="find"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14" stroke-linecap="round"/></svg></button><button type="button" id="ar-cam" class="chip" aria-pressed="false" data-t="camera">カメラ</button><button type="button" id="ar-red" class="chip" aria-pressed="false" data-t="redLight">赤色ライト</button></span>
   </div>
   <div id="ar-fov" class="num" hidden></div>
   <div class="ar-reticle" aria-hidden="true"></div>
   <div id="ar-aim"></div>
   <div id="ar-guide" hidden><i data-here="false"></i><span></span></div>
-  <button type="button" id="ar-perm" hidden>センサーを使ってはじめる</button>
+  <button type="button" id="ar-perm" hidden data-t="startSensors">センサーを使ってはじめる</button>
   <div id="ar-hint" hidden></div>
-  <div id="ar-cal" hidden>方位を合わせています。スマホを画面が見やすい角度（手前に傾けた持ち方）で1秒ほど持ってから、空へ向けてください。</div>
-  <div id="ar-acc" hidden>方位がずれています。スマホを「8の字」に数回動かしてください。</div>
-  <article id="ar-sat" hidden>
-    <button type="button" id="ar-sat-close" aria-label="閉じる">×</button>
-    <div class="kicker" id="ar-sat-kind"></div>
-    <h2 id="ar-sat-name"></h2>
-    <div id="ar-sat-raw" class="num"></div>
-    <p id="ar-sat-now"></p>
-    <p id="ar-sat-note"></p>
-    <dl id="ar-sat-facts"></dl>
-    <div class="card-foot">位置は公開されている軌道データ（CelesTrak）からの計算です。明るさは目安、軌道の高さは平均的な値です。</div>
+  <div id="ar-cal" hidden data-t="arCal">方位を合わせています。スマホを画面が見やすい角度（手前に傾けた持ち方）で1秒ほど持ってから、空へ向けてください。</div>
+  <div id="ar-acc" hidden data-t="arAcc">方位がずれています。スマホを「8の字」に数回動かしてください。</div>
+  <article id="ar-sat" class="ocard" hidden>
+    <button type="button" class="oc-close" id="ar-sat-close" aria-label="閉じる" data-t-aria="close">×</button>
+    <div class="kicker oc-kind"></div>
+    <h2 class="oc-name"></h2>
+    <div class="oc-sub num"></div>
+    <p class="oc-now"></p>
+    <p class="oc-lead"></p>
+    <dl class="oc-facts"></dl>
+    <div class="oc-actions"></div>
+    <div class="card-foot oc-foot"></div>
   </article>
   <div class="ar-veil" aria-hidden="true"></div>
 </div>
+<div id="find" hidden>
+  <div class="find-panel" role="dialog" aria-label="探す" data-t-aria="find">
+    <div class="find-box"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14" stroke-linecap="round"/></svg><input id="find-q" type="search" enterkeyhint="search" autocomplete="off" placeholder="星・星座・惑星・衛星の名前" data-t-ph="findPh"><button type="button" id="find-close" data-t="close">閉じる</button></div>
+    <div id="find-cats" class="find-cats" role="group" aria-label="種類" data-t-aria="kinds"></div>
+    <ul id="find-list"></ul>
+  </div>
+</div>
+<div id="share-toast" hidden></div>
 <div id="loading"><b>ZENITH</b></div>
 <script src="data.js"></script>
 <script src="app.js"></script>

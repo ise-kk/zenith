@@ -81,11 +81,21 @@ export function parseTLE(text) {
       if (l1.length < 69 || l2.length < 69 || !ck(l1) || !ck(l2)) { i++; continue; }
       let name = (i > 0 && !lines[i - 1].startsWith('1 ') && !lines[i - 1].startsWith('2 ')) ? lines[i - 1].replace(/^0 /, '').trim() : l1.slice(2, 7);
       const satrec = SJ.twoline2satrec(l1, l2);
-      out.push({ id: +l1.slice(2, 7), name, l1, l2, satrec, epoch: epochDate(l1) });
+      out.push({ id: satnum(l1.slice(2, 7)), name, l1, l2, satrec, epoch: epochDate(l1) });
       i++;
     }
   }
   return out;
+}
+// catalogue number; new objects (100000+) use the "Alpha-5" form, e.g. A0534 = 100534
+function satnum(f) {
+  const c = f[0];
+  if (c >= 'A' && c <= 'Z') return ('ABCDEFGHJKLMNPQRSTUVWXYZ'.indexOf(c) + 10) * 10000 + +f.slice(1);
+  return +f;
+}
+export function satEci(sat, date) {
+  const pv = SJ.propagate(sat.satrec, date);
+  return pv && pv.position && !isNaN(pv.position.x) ? pv : null;
 }
 function epochDate(l1) {
   const yy = +l1.slice(18, 20), day = parseFloat(l1.slice(20, 32));
@@ -95,7 +105,7 @@ function epochDate(l1) {
 
 // intrinsic (standard) magnitude at 1000 km, 90° phase; rough published values
 const STD_MAG = { 25544: -1.8, 48274: -1.1 };
-export const FEATURED = { 25544: { ja: '国際宇宙ステーション', en: 'International Space Station', short: 'ISS' }, 48274: { ja: '中国宇宙ステーション「天宮」', en: 'Tiangong space station', short: '天宮' } };
+export const FEATURED = { 25544: { ja: '国際宇宙ステーション', en: 'International Space Station', short: 'ISS', shortEn: 'ISS' }, 48274: { ja: '中国宇宙ステーション「天宮」', en: 'Tiangong space station', short: '天宮', shortEn: 'Tiangong' } };
 
 const RE = 6378.137;
 function sunEciKm(date) {
