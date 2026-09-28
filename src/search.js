@@ -85,7 +85,7 @@ export function createSearch(deps) {
       const extra = sat.id === 25544 ? ['iss', '国際宇宙ステーション', 'きぼう', 'international space station'] : sat.id === 48274 ? ['天宮', 'てんきゅう', 'css', 'tiangong', '中国宇宙ステーション'] : [];
       add({ kind: 'sat', sat }, info.ja || sat.name, info.kind, [sat.name, info.ja, f && f.ja, f && f.en, String(sat.id), ...extra], f ? 120 : 20);
     }
-    for (const c of (TR ? TR.active(new Date(st.t)) : [])) add({ kind: 'train', g: c.g.id }, t('train'), t('trainKind'), ['スターリンク', 'スターリンクトレイン', 'starlink', 'starlink train', 'トレイン'], 115);
+    for (const c of (TR ? TR.active(new Date(st.t)) : [])) add({ kind: 'train', g: c.g.id }, t('train'), t('catSat'), ['スターリンク', 'スターリンクトレイン', 'starlink', 'starlink train', 'トレイン'], 115);
     // one entry per object (aliases can duplicate a star/Messier entry): keep the best label per object
     index = it; satCount = st.sats.length; trainCount = TR ? TR.groups().length : 0;
   }

@@ -945,7 +945,7 @@ function pickFound(o) {
   if (o.kind === 'con') { closeObj(); focusCon(o.id); return; }
   openObj(o);
 }
-$('t-find').addEventListener('click', () => finder.open(pickFound));
+// search lives in the pointing view (it guides you there); the star map shows a tonight path when you tap something
 $('ar-find').addEventListener('click', () => finder.open(pickFound));
 window.__zen = { st, ar, TR, computeNight };
 
