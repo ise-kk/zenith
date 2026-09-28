@@ -1,0 +1,611 @@
+{
+ "_about": "Short, well-established facts shown on Zenith cards ('ちょっと面白い話'). Each entry: [ja, en]. Keep to settled facts; when scientists disagree, say so or leave it out.",
+ "planet:Mercury": [
+  [
+   "水星の「1日」（日の出から次の日の出まで）は地球の約176日分。水星の1年（約88日）の2倍もあります。",
+   "A day on Mercury (sunrise to sunrise) lasts about 176 Earth days, twice as long as its 88-day year."
+  ],
+  [
+   "太陽にいちばん近いのに、夜は約−180℃まで冷えます。熱を閉じ込める大気がほとんどないためで、昼は約430℃になります。",
+   "Though closest to the Sun, its night side drops to about −180 °C: with almost no air, it cannot hold heat. By day it reaches about 430 °C."
+  ]
+ ],
+ "planet:Venus": [
+  [
+   "金星は自転がとてもゆっくりで、1回転に地球の約243日かかります。これは金星の1年（約225日）より長く、回る向きも地球と逆です。",
+   "Venus spins so slowly that one turn takes about 243 Earth days, longer than its 225-day year, and it turns the opposite way to Earth."
+  ],
+  [
+   "地表は約460℃。太陽により近い水星よりも熱いのは、分厚い二酸化炭素の大気が熱を閉じ込めているからです。",
+   "Its surface is about 460 °C, hotter than Mercury, because a thick carbon-dioxide atmosphere traps the heat."
+  ],
+  [
+   "「明けの明星」と「宵の明星」は同じ金星です。太陽から約47°以上は離れないため、真夜中の空に見えることはありません。",
+   "The 'morning star' and 'evening star' are both Venus. It never strays more than about 47° from the Sun, so it is never seen at midnight."
+  ]
+ ],
+ "planet:Mars": [
+  [
+   "火星には太陽系最大級の火山オリンポス山があり、高さは20kmを超えます。富士山の5倍以上です。",
+   "Mars has Olympus Mons, one of the largest volcanoes in the Solar System, more than 20 km high: over five times Mount Fuji."
+  ],
+  [
+   "火星の1日は24時間39分。地球ととても近い長さです。",
+   "A day on Mars lasts 24 hours 39 minutes, very close to ours."
+  ],
+  [
+   "2つの小さな衛星のうちフォボスは少しずつ火星に近づいていて、数千万年後には砕けるか火星に落ちると考えられています。",
+   "Its little moon Phobos is slowly spiralling inward; in some tens of millions of years it is expected to break up or fall onto Mars."
+  ]
+ ],
+ "planet:Jupiter": [
+  [
+   "1610年にガリレオが見つけた4つの衛星は、地球以外の天体を回る星として初めて見つかったものでした。双眼鏡でも見えます。",
+   "The four moons Galileo found in 1610 were the first objects ever seen orbiting another world. Binoculars show them too."
+  ],
+  [
+   "木星の1日は約10時間。惑星の中でいちばん速く回っていて、そのせいで少し横につぶれた形をしています。",
+   "Jupiter turns once in about 10 hours, the fastest of all the planets, which makes it visibly squashed."
+  ],
+  [
+   "大赤斑は地球がすっぽり入るほどの巨大な嵐で、19世紀から観測が続いています。近年は少しずつ小さくなっています。",
+   "The Great Red Spot, a storm wider than Earth, has been watched since the 1800s. In recent decades it has been shrinking."
+  ]
+ ],
+ "planet:Saturn": [
+  [
+   "土星の平均の密度は水より小さく、計算の上では巨大なプールがあれば浮くことになります。",
+   "Saturn's average density is less than water's: on paper, it would float in a big enough pool."
+  ],
+  [
+   "主な環は直径約27万kmもあるのに、厚さは多くの場所でわずか10m前後、厚いところでも1km程度です。",
+   "Its main rings span about 270,000 km yet are mostly only about 10 metres thick, and at most about a kilometre."
+  ],
+  [
+   "2025年3月、環が地球から真横に見えて、ほとんど見えなくなりました。次に同じことが起きるのは2038〜39年です。",
+   "In March 2025 the rings turned edge-on to us and almost vanished. The next time will be in 2038–39."
+  ]
+ ],
+ "moon": [
+  [
+   "月は1年に約3.8cmずつ地球から遠ざかっています。アポロ計画で月面に置かれた反射板にレーザーを当てて測られています。",
+   "The Moon drifts about 3.8 cm farther from Earth each year, measured by bouncing lasers off reflectors left by Apollo astronauts."
+  ],
+  [
+   "太陽は月の約400倍の大きさで、約400倍遠くにあります。そのため空では同じくらいの大きさに見え、皆既日食が起こります。",
+   "The Sun is about 400 times wider than the Moon and about 400 times farther away, so they look the same size, which is why total solar eclipses happen."
+  ],
+  [
+   "月の裏側は地球から見えませんが、暗いわけではありません。新月のころは裏側が昼です。",
+   "The far side of the Moon is hidden from us but not dark: around new moon, the far side is in daylight."
+  ]
+ ],
+ "sun": [
+  [
+   "太陽だけで、太陽系全体の質量の約99.8%を占めています。",
+   "The Sun alone holds about 99.8% of all the mass in the Solar System."
+  ],
+  [
+   "太陽の光が地球に届くまで約8分20秒。いま見えている太陽は、約8分前の姿です。",
+   "Sunlight takes about 8 minutes 20 seconds to reach us, so we always see the Sun as it was about 8 minutes ago."
+  ]
+ ],
+ "star:Sirius": [
+  [
+   "太陽を除けば、夜空でいちばん明るい恒星です。約8.6光年と、とても近くにあることが大きな理由です。",
+   "Apart from the Sun, it is the brightest star in the night sky, mainly because it is close: about 8.6 light-years away."
+  ],
+  [
+   "シリウスには暗い相棒シリウスBがあります。地球ほどの大きさに太陽ほどの質量が詰まった「白色矮星」です。",
+   "Sirius has a faint companion, Sirius B: a white dwarf that packs about the Sun's mass into a body the size of Earth."
+  ],
+  [
+   "古代エジプトでは、夜明け前の東の空にシリウスが見え始める時期が、ナイル川の増水の季節の目安とされました。",
+   "In ancient Egypt, Sirius first reappearing in the dawn sky marked the season of the Nile's flood."
+  ]
+ ],
+ "star:Canopus": [
+  [
+   "全天で2番目に明るい恒星ですが、日本では南の地平線近くにしか昇りません。平地では福島県の北端あたり（北緯約38度）より北では見られません。",
+   "The second-brightest star in the sky, but from Japan it only skims the southern horizon; on level ground it never rises north of about 38°N (northern Fukushima)."
+  ],
+  [
+   "めったに見られないことから、見ると長生きするという言い伝えがあり「南極老人星」「寿老人の星」と呼ばれてきました。",
+   "Because it is so rarely seen, Japanese and Chinese lore said seeing it brings long life; it is called the 'Old Man of the South Pole'."
+  ]
+ ],
+ "star:Arcturus": [
+  [
+   "1933年のシカゴ万博は、約40年前（前回のシカゴ万博のころ）に出発したと考えられたアークトゥルスの光を受けて、会場の照明を点灯させる演出で始まりました。",
+   "The 1933 Chicago World's Fair opened by switching on its lights with starlight from Arcturus, believed then to have left the star around the time of the city's previous fair, 40 years earlier."
+  ],
+  [
+   "北斗七星の柄のカーブを延ばすとアークトゥルス、さらに延ばすとおとめ座のスピカ。「春の大曲線」と呼ばれます。",
+   "Follow the curve of the Big Dipper's handle to Arcturus, then on to Spica: the 'arc to Arcturus, spike to Spica'."
+  ]
+ ],
+ "star:Vega": [
+  [
+   "七夕の織姫星です。天の川をはさんで、わし座のアルタイル（彦星）と向かい合っています。",
+   "Vega is Orihime, the weaver princess of the Tanabata legend, facing Altair (the herdsman) across the Milky Way."
+  ],
+  [
+   "地球の首振り運動（歳差）のため、約1万2千年後にはベガが北極星の役目をします。",
+   "Because Earth's axis slowly wobbles, in about 12,000 years Vega will serve as the pole star."
+  ],
+  [
+   "長いあいだ、星の明るさ（等級）を決める基準の星として使われてきました。",
+   "For a long time Vega was the reference star for the magnitude scale that measures brightness."
+  ]
+ ],
+ "star:Altair": [
+  [
+   "七夕の彦星です。夏の大三角の1つで、天の川をはさんでベガ（織姫星）と向かい合います。",
+   "Altair is Hikoboshi, the herdsman of Tanabata, one corner of the Summer Triangle across the Milky Way from Vega."
+  ],
+  [
+   "10時間もかからずに1回転するほど速く自転していて、赤道のあたりがふくらんだ形をしています。2007年には表面の様子が画像でとらえられました。",
+   "It spins once in under 10 hours, so fast that it bulges at the equator. In 2007 astronomers produced an image of its surface."
+  ]
+ ],
+ "star:Deneb": [
+  [
+   "ベガ・アルタイルと夏の大三角をつくる星です。3つの中でいちばん遠いのに明るく見えるのは、太陽の何万倍もの明るさで輝いているからです。",
+   "With Vega and Altair it forms the Summer Triangle. It is by far the most distant of the three yet still bright, because it shines tens of thousands of times brighter than the Sun."
+  ]
+ ],
+ "star:Betelgeuse": [
+  [
+   "赤く輝く超巨星で、太陽の位置に置くと火星の軌道を超えるほどの大きさです。",
+   "A red supergiant so large that, put in place of the Sun, it would reach beyond the orbit of Mars."
+  ],
+  [
+   "いつか超新星爆発を起こすと考えられていますが、それが明日なのか10万年後なのかは分かりません。",
+   "It is expected to explode as a supernova one day, but no one can say whether that is tomorrow or 100,000 years from now."
+  ],
+  [
+   "2019年末から2020年にかけて急に暗くなり話題になりました。星が噴き出したガスが冷えてちりになり、光をさえぎったためと考えられています。",
+   "It dimmed dramatically in late 2019 and early 2020, most likely because gas it had thrown off cooled into dust and blocked some of its light."
+  ]
+ ],
+ "star:Rigel": [
+  [
+   "オリオンの足もとで青白く輝く超巨星です。肩の赤いベテルギウスとの色の違いは、星の表面温度の違いです。",
+   "A blue-white supergiant at Orion's foot. Its colour contrast with red Betelgeuse at the shoulder shows the difference in their surface temperatures."
+  ]
+ ],
+ "star:Procyon": [
+  [
+   "シリウス・ベテルギウスと冬の大三角をつくります。名前は「犬の前に」という意味で、シリウス（おおいぬ座）より少し先に昇ることから。",
+   "It forms the Winter Triangle with Sirius and Betelgeuse. Its name means 'before the dog', as it rises just ahead of Sirius."
+  ]
+ ],
+ "star:Capella": [
+  [
+   "1つの星に見えますが、実は2つの黄色い巨星が約104日で回り合う連星です。",
+   "It looks like one star but is two yellow giants orbiting each other every 104 days."
+  ]
+ ],
+ "star:Aldebaran": [
+  [
+   "おうし座の赤い目です。名前はアラビア語で「後に続くもの」。すばるの後を追うように昇ることから。",
+   "The red eye of Taurus. Its Arabic name means 'the follower', because it rises after the Pleiades."
+  ]
+ ],
+ "star:Pollux": [
+  [
+   "ふたご座の兄弟星の1つで、周りを回る惑星が見つかっています。",
+   "One of the Gemini twins; a planet has been found orbiting it."
+  ]
+ ],
+ "star:Castor": [
+  [
+   "1つの星に見えますが、望遠鏡で調べると6つの星が集まった星の家族です。",
+   "It looks single, but it is actually a family of six stars bound together."
+  ]
+ ],
+ "star:Spica": [
+  [
+   "日本では「真珠星」とも呼ばれます。実は2つの星が約4日で回り合う連星です。",
+   "In Japan it is also called the 'pearl star'. It is really two stars orbiting each other every 4 days."
+  ]
+ ],
+ "star:Regulus": [
+  [
+   "約16時間で1回転するほど速く自転していて、赤道方向に大きくふくらんでいます。",
+   "It spins once in about 16 hours, fast enough to bulge strongly at its equator."
+  ]
+ ],
+ "star:Antares": [
+  [
+   "さそり座の赤い心臓です。名前は「火星（アレス）に対抗するもの」という意味で、赤さが火星と張り合うことから。",
+   "The red heart of the Scorpion. Its name means 'rival of Mars (Ares)', for its matching red colour."
+  ]
+ ],
+ "star:Fomalhaut": [
+  [
+   "秋の南の空でただ1つの1等星で、日本では「秋の一つ星」とも呼ばれます。周りにはちりの円盤が広がっています。",
+   "The only first-magnitude star in the autumn southern sky, called the 'lonely star of autumn'. It is surrounded by a wide disk of dust."
+  ]
+ ],
+ "star:Polaris": [
+  [
+   "ほぼ真北の空にあり、一晩中ほとんど動きません。見える高さは、その場所の緯度とほぼ同じです。",
+   "It sits almost due north and barely moves all night. Its height above the horizon is roughly your latitude."
+  ],
+  [
+   "北極星はずっと同じ星ではありません。約5000年前には、りゅう座のトゥバンが北極星でした。",
+   "The pole star changes over time: about 5,000 years ago it was Thuban in Draco."
+  ]
+ ],
+ "star:Algol": [
+  [
+   "約2日21時間ごとに、10時間ほど暗くなります。2つの星が互いに前を横切って光をさえぎるためです。",
+   "Every 2 days 21 hours it fades for about 10 hours, as one star of a pair passes in front of the other."
+  ]
+ ],
+ "star:Rigil Kentaurus": [
+  [
+   "太陽系にいちばん近い恒星系（約4.4光年）です。日本の大部分からは地平線の下で見えません。",
+   "The nearest star system to the Sun, about 4.4 light-years away. From most of Japan it stays below the horizon."
+  ]
+ ],
+ "con:Ori": [
+  [
+   "ギリシャ神話の狩人オリオン。サソリに刺されて命を落としたため、さそり座が東から昇るとオリオンは西に沈み、同時に空に並ぶことはないと語られます。",
+   "Orion the hunter was killed by a scorpion, so the story goes that he sets in the west as Scorpius rises in the east; they are never in the sky together."
+  ],
+  [
+   "日本では、真ん中がくびれた形を楽器の鼓に見立てて「鼓星（つづみぼし）」とも呼ばれました。",
+   "In Japan its waisted shape was likened to a hand drum and called 'tsuzumi-boshi', the drum star."
+  ]
+ ],
+ "con:UMa": [
+  [
+   "北斗七星は、おおぐま座の腰から尾にあたる部分です。ひしゃくの先の2つの星の間隔を5倍延ばすと北極星に届きます。",
+   "The Big Dipper is the bear's back and tail. Extend the two stars at the end of the bowl five times their spacing and you reach Polaris."
+  ]
+ ],
+ "con:UMi": [
+  [
+   "北極星はこぐま座のしっぽの先にあたります。小さなひしゃくの形ですが、明るい星は少なく、街中では見つけにくい星座です。",
+   "Polaris marks the tip of the Little Bear's tail. It is a small dipper shape, but most of its stars are faint and hard to see from towns."
+  ]
+ ],
+ "con:Cas": [
+  [
+   "W（またはM）の形が目印です。北斗七星と北極星をはさんで反対側にあるので、北斗七星が低い季節の北極星探しに使えます。",
+   "Look for the W (or M) shape. It sits opposite the Big Dipper across Polaris, so it helps find the pole star when the Dipper is low."
+  ]
+ ],
+ "con:Cyg": [
+  [
+   "大きな十字の形から「北十字」とも呼ばれ、天の川の中を飛んでいます。",
+   "Its large cross shape is called the Northern Cross, flying along the Milky Way."
+  ],
+  [
+   "この星座の方向にある「はくちょう座X-1」は、ブラックホールと広く認められた最初の天体です。",
+   "Cygnus X-1, in this direction, was the first object widely accepted to be a black hole."
+  ]
+ ],
+ "con:Lyr": [
+  [
+   "ギリシャ神話で、竪琴の名手オルフェウスの琴とされています。小さな星座ですが、織姫星ベガがあります。",
+   "In Greek myth this is the lyre of Orpheus. A small constellation, but it holds Vega."
+  ]
+ ],
+ "con:Aql": [
+  [
+   "ギリシャ神話では大神ゼウスの使いの鷲。明るいアルタイルは七夕の彦星です。",
+   "In Greek myth, the eagle that served Zeus. Its bright star Altair is the herdsman of Tanabata."
+  ]
+ ],
+ "con:Sco": [
+  [
+   "S字に連なる星の並びを釣り針に見立てて、日本の地方によっては「うおつりぼし（魚釣り星）」と呼ばれてきました。",
+   "In parts of Japan its curling line of stars was seen as a fish-hook and called the 'fishing star'."
+  ]
+ ],
+ "con:Sgr": [
+  [
+   "私たちの天の川銀河の中心は、いて座の方向にあります。中心の巨大ブラックホール（太陽の約400万倍の質量）の姿は2022年に公表されました。",
+   "The centre of our Milky Way lies in the direction of Sagittarius. An image of its giant black hole, about 4 million times the Sun's mass, was released in 2022."
+  ]
+ ],
+ "con:Tau": [
+  [
+   "すばる（プレアデス星団）とヒアデス星団という2つの星の集まりがあり、双眼鏡で見ると見事です。",
+   "It holds two star clusters, the Pleiades and the Hyades, both lovely in binoculars."
+  ]
+ ],
+ "con:Gem": [
+  [
+   "カストルとポルックスの双子の兄弟です。12月の「ふたご座流星群」は、一年でも特に多く流れ星が見られる流星群です。",
+   "The twin brothers Castor and Pollux. The Geminid meteor shower in December is one of the richest of the year."
+  ]
+ ],
+ "con:Leo": [
+  [
+   "ライオンの頭は「？」を裏返したような星の並びで「ししの大鎌」と呼ばれます。2001年のしし座流星群では、日本でも1時間に数千個に相当する大出現がありました。",
+   "The lion's head is a backwards question mark called the Sickle. In 2001 the Leonids produced a storm equivalent to thousands of meteors an hour, seen from Japan."
+  ]
+ ],
+ "con:Vir": [
+  [
+   "おとめ座の方向には、千個以上の銀河が集まる「おとめ座銀河団」があります。2019年に初めて撮影されたブラックホールも、この中の銀河M87にあります。",
+   "Virgo holds the Virgo Cluster of well over a thousand galaxies. The first black hole ever imaged, in 2019, is in one of them, M87."
+  ]
+ ],
+ "con:Boo": [
+  [
+   "明るいアークトゥルスが目印の、うしかい（牛飼い）の星座です。ネクタイのような五角形に並びます。",
+   "The herdsman, marked by bright Arcturus; its stars form a kite shape."
+  ]
+ ],
+ "con:CMa": [
+  [
+   "全天でいちばん明るい恒星シリウスがある、狩人オリオンの猟犬です。",
+   "The hunter Orion's big dog, home of Sirius, the brightest star in the night sky."
+  ]
+ ],
+ "con:CMi": [
+  [
+   "明るいプロキオンと小さな星1つだけで描かれる、とても小さな星座です。",
+   "A tiny constellation drawn with bright Procyon and just one fainter star."
+  ]
+ ],
+ "con:Aur": [
+  [
+   "大きな五角形が目印で、明るいカペラがあります。昔の星図では、ぎょしゃ（御者）が子ヤギを抱いた姿で描かれました。",
+   "A large pentagon with bright Capella. Old star maps show the charioteer holding a young goat."
+  ]
+ ],
+ "con:And": [
+  [
+   "アンドロメダ銀河（M31）は約250万光年先にあり、暗い空なら肉眼でも見える、もっとも遠い天体の1つです。",
+   "The Andromeda Galaxy (M31), about 2.5 million light-years away, is one of the most distant things visible to the naked eye under a dark sky."
+  ]
+ ],
+ "con:Peg": [
+  [
+   "4つの星が大きな四角形をつくる「秋の四辺形（ペガススの四辺形）」が目印です。",
+   "Look for the Great Square of Pegasus, four stars in a big square."
+  ]
+ ],
+ "con:Per": [
+  [
+   "毎年8月のペルセウス座流星群の放射点があります。変光星アルゴルは、ギリシャ神話で英雄ペルセウスが持つメドゥーサの首の位置にあります。",
+   "Home of the radiant of August's Perseid meteors. The variable star Algol marks the head of Medusa that Perseus carries."
+  ]
+ ],
+ "con:Cru": [
+  [
+   "全天でいちばん小さな星座です。日本では沖縄など南の地域で、春の夜に南の低い空に見えます。",
+   "The smallest of all 88 constellations. From Japan it can be seen low in the south on spring nights from Okinawa and other southern islands."
+  ]
+ ],
+ "con:Aqr": [
+  "zodiac"
+ ],
+ "con:Psc": [
+  "zodiac"
+ ],
+ "con:Ari": [
+  "zodiac"
+ ],
+ "con:Cnc": [
+  [
+   "zodiac"
+  ],
+  [
+   "中心にあるプレセペ星団は、暗い空なら肉眼でもぼんやり見える星の集まりです。",
+   "The Beehive Cluster at its heart is a hazy patch visible to the naked eye under dark skies."
+  ]
+ ],
+ "con:Lib": [
+  "zodiac"
+ ],
+ "con:Cap": [
+  "zodiac"
+ ],
+ "con:Del": [
+  [
+   "小さなひし形としっぽの、かわいらしい形の星座です。夏の大三角のすぐそばにあります。",
+   "A small, charming diamond with a tail, right beside the Summer Triangle."
+  ]
+ ],
+ "zodiac": [
+  "誕生日の星座（星占いの12星座）は、もともと誕生日のころに太陽がいる方向の星座として決められたので、その季節の夜にはほとんど見えません。ただ、決められたのが約2000年前なので、いまは地球の首振り運動（歳差）で約1か月分ずれています。",
+  "Your sign was defined as the constellation behind the Sun around your birthday, so you can hardly see it then. But the signs were fixed about 2,000 years ago, and Earth's wobble has since shifted them by about a month."
+ ],
+ "m:M42": [
+  [
+   "オリオン大星雲は約1,300光年先で、いまも新しい星が生まれている場所です。暗い空なら肉眼でもぼんやり見えます。",
+   "About 1,300 light-years away, the Orion Nebula is a place where stars are being born right now. Under a dark sky you can see it with the naked eye."
+  ]
+ ],
+ "m:M45": [
+  [
+   "すばるは約1000年前、清少納言の『枕草子』に「星はすばる」と書かれた、日本で古くから親しまれてきた星の集まりです。自動車メーカーのSUBARUのマークもこの星の集まりがもとです。",
+   "Subaru (the Pleiades) was praised about 1,000 years ago in 'The Pillow Book': 'Of stars, Subaru.' The car maker's logo depicts it."
+  ],
+  [
+   "肉眼で数えられる星は6〜7個ほどですが、実際には1,000個以上の星の集まりです。",
+   "Most people count six or seven stars by eye, but the cluster has over a thousand."
+  ]
+ ],
+ "m:M31": [
+  [
+   "約250万光年先にある、天の川銀河のお隣の大きな銀河です。いま見ている光は、ヒトの仲間（ヒト属）が地上に現れ始めたころに出発しました。",
+   "Our large neighbour galaxy, about 2.5 million light-years away. The light you see set out around when the first members of our genus, Homo, appeared."
+  ]
+ ],
+ "m:M13": [
+  [
+   "1974年、地球外の知的生命に向けた電波メッセージ「アレシボ・メッセージ」がこの星団に向けて送られました。届くのは約2万5千年後です。",
+   "In 1974 the Arecibo message, a radio greeting to any intelligent life, was beamed at this cluster. It will arrive in about 25,000 years."
+  ]
+ ],
+ "m:M1": [
+  [
+   "1054年に起きた超新星爆発の残骸です。この「客星」の記録は、藤原定家の『明月記』にも書き残されています。",
+   "The remains of a star that exploded in 1054. That 'guest star' is recorded in Japanese chronicles, including Fujiwara no Teika's diary 'Meigetsuki'."
+  ],
+  [
+   "中心には1秒間に約30回転する中性子星（パルサー）があります。",
+   "At its centre is a neutron star (pulsar) spinning about 30 times a second."
+  ]
+ ],
+ "m:M44": [
+  [
+   "プレセペ星団は暗い空なら肉眼でもぼんやり見えます。ガリレオが望遠鏡を向けて、たくさんの星の集まりだと気づきました。",
+   "The Beehive Cluster is a faint haze to the naked eye; Galileo's telescope showed it to be many stars."
+  ]
+ ],
+ "m:M57": [
+  [
+   "環状星雲は、太陽のような星が一生の終わりに外側のガスを放り出してできた姿です。太陽も約50億年後に年老いて膨らみ始め、最後は似た姿（ただし淡いもの）になると考えられています。",
+   "The Ring Nebula is the gas shed by a Sun-like star at the end of its life. Our Sun will begin to swell in about 5 billion years and is expected eventually to end up as a similar, though faint, nebula."
+  ]
+ ],
+ "m:M27": [
+  [
+   "あれい状星雲も、年老いた星が放ったガスでできています。小さな望遠鏡でも形が分かる明るい星雲です。",
+   "The Dumbbell is also gas thrown off by an ageing star, bright enough that a small telescope shows its shape."
+  ]
+ ],
+ "m:M16": [
+  [
+   "わし星雲の中の柱のようなガスを、1995年にハッブル宇宙望遠鏡が撮影した写真「創造の柱」は、宇宙の写真でも特に有名な1枚です。",
+   "Hubble's 1995 photograph of the gas columns inside the Eagle Nebula, the 'Pillars of Creation', is one of the most famous space images ever."
+  ]
+ ],
+ "m:M51": [
+  [
+   "子持ち銀河は、渦巻きの形が初めて描き残された銀河です（1845年、ロス卿のスケッチ）。",
+   "The Whirlpool was the first galaxy whose spiral shape was recorded, in Lord Rosse's 1845 sketch."
+  ]
+ ],
+ "m:M8": [
+  [
+   "干潟星雲は、暗い空なら肉眼でも天の川の中に明るいしみとして見えます。いまも星が生まれている場所です。",
+   "The Lagoon Nebula shows as a bright smudge in the Milky Way to the naked eye under dark skies; stars are forming there."
+  ]
+ ],
+ "m:M104": [
+  [
+   "つばの広い帽子のように見えることから「ソンブレロ銀河」と呼ばれます。",
+   "It looks like a broad-brimmed hat, hence the name Sombrero Galaxy."
+  ]
+ ],
+ "shower:QUA": [
+  [
+   "名前の「しぶんぎ座」は今は使われていない昔の星座（壁面四分儀座）の名前です。放射点はうしかい座とりゅう座の境あたりにあります。",
+   "It is named after Quadrans Muralis, a constellation no longer in use; the radiant lies near the border of Boötes and Draco."
+  ]
+ ],
+ "shower:LYR": [
+  [
+   "記録に残る中で最も古い流星群の1つで、紀元前7世紀の中国の記録にも登場します。",
+   "One of the oldest recorded meteor showers, mentioned in Chinese records from the 7th century BC."
+  ]
+ ],
+ "shower:ETA": [
+  [
+   "流れ星のもとは、ハレー彗星が残したちりです。10月のオリオン座流星群と同じ彗星です。",
+   "Its meteors are dust left by Halley's Comet, the same comet behind October's Orionids."
+  ]
+ ],
+ "shower:PER": [
+  [
+   "流れ星のもとは、スイフト・タットル彗星が残したちりです。夏休みの時期に見ごろになる、日本でも人気の流星群です。",
+   "Its meteors are dust from Comet Swift–Tuttle. Peaking in the summer holidays, it is one of the best-loved showers."
+  ]
+ ],
+ "shower:DRA": [
+  [
+   "もとはジャコビニ・ジナー彗星のちりで、「ジャコビニ流星群」とも呼ばれます。年によって急に多くなることがあります。",
+   "Dust from Comet Giacobini–Zinner, also called the Giacobinids; in some years it suddenly becomes very active."
+  ]
+ ],
+ "shower:ORI": [
+  [
+   "流れ星のもとはハレー彗星のちりです。ハレー彗星そのものが次に戻ってくるのは2061年です。",
+   "Its meteors come from Halley's Comet, which itself returns in 2061."
+  ]
+ ],
+ "shower:NTA": [
+  [
+   "流れ星のもとは、エンケ彗星やその仲間の天体が残したちりで、ゆっくり流れる明るい火球が見られることがあります。",
+   "Its meteors come from Comet Encke's family of debris; it is known for occasional slow, bright fireballs."
+  ]
+ ],
+ "shower:LEO": [
+  [
+   "もとはテンペル・タットル彗星のちりです。彗星が約33年ごとに戻るころ大出現することがあり、2001年には日本でも1時間に数千個に相当する大出現がありました。",
+   "Dust from Comet Tempel–Tuttle. Around the comet's 33-year returns it can storm; in 2001 Japan saw rates equivalent to thousands per hour."
+  ]
+ ],
+ "shower:GEM": [
+  [
+   "多くの流星群のもとは彗星ですが、ふたご座流星群のもとは小惑星ファエトンです。一年でも特に多く流れ星が見られます。",
+   "Most showers come from comets, but the Geminids come from an asteroid, Phaethon. It is one of the year's richest showers."
+  ]
+ ],
+ "shower:URS": [
+  [
+   "流れ星のもとはタットル彗星のちりです。冬至のころの、寒さの中の流星群です。",
+   "Dust from Comet Tuttle; a shower for cold nights around the winter solstice."
+  ]
+ ],
+ "sat:25544": [
+  [
+   "時速約2万8千kmで、約90分で地球を1周します。宇宙飛行士は1日に約16回、日の出と日の入りを見ています。",
+   "It travels about 28,000 km/h and circles Earth every 90 minutes, so the crew see about 16 sunrises and sunsets a day."
+  ],
+  [
+   "大きさはサッカー場ほど。太陽電池パネルが太陽の光をよく反射するので、空ではとても明るく見えます。",
+   "It is about the size of a football field, and its large solar panels reflect sunlight well, which is why it looks so bright."
+  ],
+  [
+   "2030年ごろに運用を終え、大気圏に落として太平洋の人のいない海域に沈める計画です。",
+   "It is planned to retire around 2030 and be steered down into a remote part of the Pacific Ocean."
+  ]
+ ],
+ "sat:48274": [
+  [
+   "中国の宇宙ステーション「天宮」は2022年に完成しました。上から見るとT字形をしています。",
+   "China's Tiangong space station was completed in 2022. Seen from above, it is shaped like a T."
+  ]
+ ],
+ "sat:HUBBLE": [
+  [
+   "打ち上げ直後、鏡の形に髪の毛の太さの約50分の1というわずかな誤差が見つかり、写真がぼやけました。1993年に宇宙飛行士が修理しました。",
+   "Soon after launch its mirror turned out to be wrong by about a fiftieth of a hair's width, blurring its images. Astronauts fixed it in 1993."
+  ]
+ ],
+ "sat:AJISAI": [
+  [
+   "表面に318枚の鏡が付いていて、回転しながら太陽の光を反射するため、光が点滅して見えます。",
+   "It is covered with 318 mirrors; as it spins they catch the sunlight, so it seems to flash."
+  ]
+ ],
+ "sat:SL-16": [
+  [
+   "ゼニット・ロケットの上段は長さ約11m、重さ約9トン。地球を回る人工物の中でも特に大きなものの1つです。",
+   "A Zenit upper stage is about 11 m long and weighs about 9 tonnes, among the largest human-made objects in orbit."
+  ]
+ ],
+ "sat:RB": [
+  [
+   "ロケットの上段は、衛星を軌道に届けたあとも何十年と回り続けるものがあります。大きな円筒形で光をよく反射するため、人工衛星より明るく見えることもあります。",
+   "Some rocket upper stages keep circling for decades after delivering their satellites. Big reflective cylinders, they can look brighter than the satellites themselves."
+  ]
+ ],
+ "train": [
+  [
+   "打ち上げ直後のスターリンク衛星が真珠のネックレスのように並ぶ姿が、2019年に各地で目撃され、天文ファンの間で大きな話題になりました。",
+   "In 2019, strings of freshly launched Starlink satellites crossing the sky like a string of pearls caught people around the world by surprise."
+  ]
+ ]
+}
