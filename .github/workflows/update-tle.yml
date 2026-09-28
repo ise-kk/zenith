@@ -24,10 +24,23 @@ jobs:
           grep -q "^1 25544" tle.new   # ISS must be present, otherwise keep the old file
           mv tle.new tle.txt
           rm -f stations.txt visual.txt
+      - name: Download newly launched Starlink (for Starlink trains)
+        continue-on-error: true   # the sky map still works without it
+        run: |
+          set -euo pipefail
+          UA="Zenith personal sky site (GitHub Actions)"
+          sleep 5
+          curl -fsSL -A "$UA" "https://celestrak.org/NORAD/elements/supplemental/sup-gp.php?FILE=starlink&FORMAT=json" -o sup.json
+          sleep 5
+          curl -fsSL -A "$UA" "https://celestrak.org/satcat/records.php?GROUP=last-30-days&FORMAT=json" -o satcat.json
+          # CelesTrak answers with a text message (not JSON) when asked again too soon: keep the old file then
+          python3 -c "import json; json.load(open('sup.json')); json.load(open('satcat.json'))"
+          python3 .github/trains.py
+          rm -f sup.json satcat.json
       - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tle.txt
+          git add tle.txt trains.json 2>/dev/null || git add tle.txt
           git diff --cached --quiet || git commit -m "Update orbital data $(date -u +%Y-%m-%dT%H:%MZ)"
           git push
