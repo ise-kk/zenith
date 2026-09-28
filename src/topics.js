@@ -50,11 +50,11 @@ export function createTopics({ S, A }) {
       if (o.en === 'Mercury' || o.en === 'Venus') {
         const e = A.SearchMaxElongation(A.Body[o.en], tt);
         const days = Math.ceil((e.time.date - now) / 864e5);
-        text = t('dynElong', JA ? o.ja : o.en, fmtDate(e.time.date), days, e.visibility === 'evening');
+        text = { text: t('dynElong', JA ? o.ja : o.en, fmtDate(e.time.date), days, e.visibility === 'evening'), near: days <= 30 };
       } else {
         const r = A.SearchRelativeLongitude(A.Body[o.en], 0, tt);
         const days = Math.ceil((r.date - now) / 864e5);
-        text = t('dynOpp', JA ? o.ja : o.en, fmtDate(r.date), days);
+        text = { text: t('dynOpp', JA ? o.ja : o.en, fmtDate(r.date), days), near: days <= 30 };
       }
     } catch (e) { text = null; }
     dynCache.set(o.en, { day, text });
@@ -64,7 +64,6 @@ export function createTopics({ S, A }) {
   function list(o, now) {
     const out = [];
     const dyn = dynamic(o, now);
-    if (dyn) out.push(dyn);
     const k = keyOf(o);
     if (data && k && Array.isArray(data[k])) {
       for (const x of data[k]) {
@@ -72,6 +71,10 @@ export function createTopics({ S, A }) {
         else if (Array.isArray(x)) out.push(x[JA ? 0 : 1]);
       }
     }
+    // the computed line leads only when the date is near (within 30 days); otherwise it comes last.
+    // The fixed topics start at a different one each day, so the same line does not always come first.
+    if (out.length > 1) { const sh = Math.floor(now.getTime() / 864e5) % out.length; out.push(...out.splice(0, sh)); }
+    if (dyn) { if (dyn.near) out.unshift(dyn.text); else out.push(dyn.text); }
     return { key: (k || o.kind) + (dyn ? '+d' : ''), items: out };
   }
 
