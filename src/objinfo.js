@@ -18,7 +18,7 @@ const MOON_NAMES = { ja: ['新月', '三日月', '上弦の月', '満ちてい�
 const SPEC_COLOR = { O: ['青白い', 'blue-white'], B: ['青白い', 'blue-white'], A: ['白い', 'white'], F: ['黄みがかった白の', 'yellowish-white'], G: ['黄色い', 'yellow'], K: ['オレンジ色の', 'orange'], M: ['赤い', 'red'] };
 
 export function createObjInfo(deps) {
-  const { st, S, A, DATA, dir, esc, hm, md, lightYearText, fmtLy, TR } = deps;
+  const { st, S, A, DATA, dir, esc, hm, md, lightYearText, fmtLy, TR, TP } = deps;
   const dayKey = (d) => new Intl.DateTimeFormat(LOCALE, { timeZone: TZ, month: 'numeric', day: 'numeric' }).format(d);
   const when = (d, ref) => d ? (dayKey(d) === dayKey(ref) ? hm(d) : `${md(d)} ${hm(d)}`) : '—';
   const conOf = (ra, dec) => { const c = A.Constellation(ra, dec); const hit = DATA.cons.find(x => x.id === c.symbol); return hit ? conName(hit) : c.name; };
@@ -249,6 +249,7 @@ export function createObjInfo(deps) {
     const tn = tonightText(o);
     q('.oc-now').innerHTML = c.now + (tn ? `<span class="oc-tn">${tn}</span>` : '');
     q('.oc-lead').textContent = c.lead; q('.oc-lead').hidden = !c.lead;
+    if (TP) TP.render(q('.oc-topic'), o, d);
     q('.oc-facts').innerHTML = c.facts.join('');
     const acts = q('.oc-actions');
     const sig = JSON.stringify(c.actions.map(a => a.label + (a.href || '') + (a.con || '')));

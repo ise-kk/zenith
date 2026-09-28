@@ -268,6 +268,11 @@ const D = {
   shareVisible: { ja: '見えているもの', en: 'In the sky' },
   shareNote: { ja: '計算による空の再現です（天気は含みません）', en: 'A computed view of the sky (weather not included)' },
   shareText: { ja: (d) => `${d}の空 — Zenith`, en: (d) => `The sky on ${d} — Zenith` },
+  // topics on the cards
+  topicHead: { ja: 'ちょっと面白い話', en: 'Did you know' },
+  topicNext: { ja: '次の話 ›', en: 'Next ›' },
+  dynOpp: { ja: (n, d, k) => `${n}は${d}に「衝」${k > 0 ? `（あと${k}日）` : ''}。太陽の反対側に来て、一年でいちばん明るく、一晩中見える時期です。`, en: (n, d, k) => `${n} reaches opposition on ${d}${k > 0 ? ` (in ${k} days)` : ''}: opposite the Sun, at its brightest and up all night.` },
+  dynElong: { ja: (n, d, k, ev) => `${n}が次に太陽からいちばん離れて見やすくなるのは${d}${k > 0 ? `（あと${k}日）` : ''}。${ev ? '夕方の西の空' : '明け方の東の空'}に見えます。`, en: (n, d, k, ev) => `${n} is next at its greatest distance from the Sun on ${d}${k > 0 ? ` (in ${k} days)` : ''}, best seen in the ${ev ? 'evening western' : 'dawn eastern'} sky.` },
   // tonight's path on the card
   tnHead: { ja: '今夜 ', en: 'Tonight: ' },
   tnRise: { ja: (h, d) => `${h} ${d}から昇る`, en: (h, d) => `rises ${h} in the ${d}` },

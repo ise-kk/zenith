@@ -226,6 +226,12 @@ textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);b
 .ocard .oc-now b{color:var(--gold);font-weight:500}
 .ocard .oc-tn{display:block;margin-top:3px;font-size:12px;color:var(--muted)}
 .ocard .oc-lead{margin:0;font-size:13px;line-height:1.75;color:#d7dce6}
+.oc-topic{border-left:2px solid rgba(242,196,109,.7);padding:1px 0 1px 12px}
+.oc-topic .ot-h{font-size:10.5px;letter-spacing:.16em;color:var(--gold);margin-bottom:3px}
+.oc-topic p{margin:0;font-size:13px;line-height:1.75;color:#e9ecf2}
+.oc-topic .ot-next{margin-top:4px;padding:2px 0;font-size:11.5px;color:var(--muted)}
+.oc-topic .ot-next:hover{color:var(--ink)}
+.oc-topic .ot-next .num{font-size:10.5px;margin-left:4px;color:var(--faint)}
 .ocard .oc-facts{margin:0;display:flex;flex-direction:column}
 .ocard .oc-facts div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px}
 .ocard .oc-facts dt{color:var(--muted);flex:none}
@@ -385,6 +391,7 @@ body.ar-on #tip{display:none}
       <div id="card-latin"></div>
       <p id="card-lead"></p>
       <p id="card-now"></p>
+      <div class="oc-topic" id="card-topic" hidden></div>
       <dl id="card-facts"></dl>
       <h3 class="sec-h"><span data-t="brightStars">明るい星</span><span data-t="ly">光年</span></h3>
       <div class="tbl"><table><thead><tr><th data-t="thName">名前</th><th data-t="thDesig">符号</th><th class="r" data-t="thMag">等級</th><th data-t="thSpec">スペクトル</th><th class="r" data-t="thDist">距離</th></tr></thead><tbody id="card-stars"></tbody></table></div>
@@ -397,6 +404,7 @@ body.ar-on #tip{display:none}
     <h2 class="oc-name"></h2>
     <div class="oc-sub num"></div>
     <p class="oc-now"></p>
+    <div class="oc-topic" hidden></div>
     <p class="oc-lead"></p>
     <dl class="oc-facts"></dl>
     <div class="oc-actions"></div>
@@ -488,6 +496,7 @@ body.ar-on #tip{display:none}
     <h2 class="oc-name"></h2>
     <div class="oc-sub num"></div>
     <p class="oc-now"></p>
+    <div class="oc-topic" hidden></div>
     <p class="oc-lead"></p>
     <dl class="oc-facts"></dl>
     <div class="oc-actions"></div>

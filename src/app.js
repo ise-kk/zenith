@@ -4,6 +4,7 @@ import { createObjInfo } from './objinfo.js';
 import { createSearch } from './search.js';
 import { createTrains } from './trains.js';
 import { createShare } from './share.js';
+import { createTopics } from './topics.js';
 import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT } from './i18n.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
@@ -903,6 +904,7 @@ function renderCard() {
   $('card-name').textContent = conName(c);
   $('card-latin').textContent = `${JA ? c.la : ''}${c.gen ? (JA ? ' · ' : '') + t('genitive') + ' ' + c.gen : ''}`;
   $('card-lead').innerHTML = lead || t('modest');
+  TP.render($('card-topic'), { kind: 'con', id }, new Date(st.t));
   $('card-now').innerHTML = `${now}<br><span>${season}</span>`;
   $('card-facts').innerHTML = [
     [t('area'), t('areaV', Math.round(ar.area).toLocaleString(JA ? 'ja-JP' : 'en'), ar.rank)],
@@ -921,7 +923,8 @@ function renderCard() {
 setInterval(() => { if (st.focusCon) renderCard(); }, 5000);
 
 // ---------- anything-card (planets, Moon, stars, Messier, satellites, radiants) ----------
-const OI = createObjInfo({ st, S, A, DATA, dir, mag, esc, hm, md, lightYearText, fmtLy, TR });
+const TP = createTopics({ S, A });
+const OI = createObjInfo({ st, S, A, DATA, dir, mag, esc, hm, md, lightYearText, fmtLy, TR, TP });
 st.sel = null;
 const ocard = $('ocard');
 const ocHandlers = { con: (id) => { closeObj(); focusCon(id); }, pass: (p) => { st.focusPass = p; closeObjCard(); setTime(p.start.t - 30e3, 10); } };
@@ -947,7 +950,7 @@ function pickFound(o) {
 }
 // search lives in the pointing view (it guides you there); the star map shows a tonight path when you tap something
 $('ar-find').addEventListener('click', () => finder.open(pickFound));
-window.__zen = { st, ar, TR, computeNight };
+window.__zen = { st, ar, TR, computeNight, openObj, focusCon };
 
 // ---------- share ----------
 const sharer = createShare({ st, S, A, DATA, STAR_RGB, skyState, OI, TR, hm, md, placeName, fShort });
