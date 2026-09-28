@@ -830,6 +830,7 @@ tgl.setAttribute('aria-pressed', String(st.showLines));
 tgl.addEventListener('click', () => { st.showLines = !st.showLines; store.set('lines', st.showLines); tgl.setAttribute('aria-pressed', String(st.showLines)); });
 
 function focusCon(id) {
+  if (id && id !== st.focusCon) TP.opened({ kind: 'con', id });
   if (id) closeObjCard();
   st.focusCon = id;
   $('card').hidden = !id;
@@ -929,6 +930,7 @@ st.sel = null;
 const ocard = $('ocard');
 const ocHandlers = { con: (id) => { closeObj(); focusCon(id); }, pass: (p) => { st.focusPass = p; closeObjCard(); setTime(p.start.t - 30e3, 10); } };
 function openObj(o) {
+  TP.opened(o);
   if (st.focusCon) focusCon(null);
   st.sel = o; ocard.hidden = false; ocard.classList.remove('tall'); document.querySelector('.legend').hidden = true;
   OI.render(ocard, o, new Date(st.t), ocHandlers); ocard.scrollTop = 0;
@@ -941,7 +943,7 @@ ocard.addEventListener('scroll', () => { if (!PHONE.matches) return; if (ocard.s
 setInterval(() => { if (st.sel && !ocard.hidden) OI.render(ocard, st.sel, new Date(st.t), ocHandlers); }, 1000);
 
 // ---------- かざすモード ----------
-const ar = createAR({ $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES, OI, TR });
+const ar = createAR({ $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES, OI, TR, TP });
 
 // ---------- search ----------
 const finder = createSearch({ st, S, A, DATA, OI, dir, mag, esc, TR });

@@ -6,7 +6,10 @@ import { PROPER } from './propernames.js';
 
 export function createTopics({ S, A }) {
   let data = null, loading = null;
-  const pos = new Map();      // key -> index of the topic being shown
+  // key -> how many times this card has been opened; the topic shown moves on by one each time
+  // (remembered on this device, so it keeps changing between visits too)
+  const pos = new Map(Object.entries((() => { try { return JSON.parse(localStorage.getItem('zenith.topicpos')) || {}; } catch (e) { return {}; } })()));
+  const savePos = () => { try { localStorage.setItem('zenith.topicpos', JSON.stringify(Object.fromEntries(pos))); } catch (e) { } };
   const dynCache = new Map(); // planet -> { day, text }
 
   function load() {
@@ -71,11 +74,9 @@ export function createTopics({ S, A }) {
         else if (Array.isArray(x)) out.push(x[JA ? 0 : 1]);
       }
     }
-    // the computed line leads only when the date is near (within 30 days); otherwise it comes last.
-    // The fixed topics start at a different one each day, so the same line does not always come first.
-    if (out.length > 1) { const sh = Math.floor(now.getTime() / 864e5) % out.length; out.push(...out.splice(0, sh)); }
-    if (dyn) { if (dyn.near) out.unshift(dyn.text); else out.push(dyn.text); }
-    return { key: (k || o.kind) + (dyn ? '+d' : ''), items: out };
+    // the computed line joins only when the date is near (within 30 days)
+    if (dyn && dyn.near) out.unshift(dyn.text);
+    return { key: k || o.kind, items: out };
   }
 
   // fill `el` (a .oc-topic element); hides it when there is nothing to say
@@ -84,16 +85,19 @@ export function createTopics({ S, A }) {
     if (!data) { el.hidden = true; load().then(() => render(el, o, now)); return; }
     const { key, items } = list(o, now);
     if (!items.length) { el.hidden = true; el.dataset.sig = ''; return; }
-    const i = (pos.get(key) || 0) % items.length;
+    const i = (pos.get(key) || 0) % items.length; // one topic per opening, no "next" button
     const sig = key + '#' + i + '#' + items.length + '#' + items[i];
     el.hidden = false;
     if (el.dataset.sig === sig) return;
     el.dataset.sig = sig;
     const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    el.innerHTML = `<p>${esc(items[i])}</p>` + // no heading: just the text, set off by the gold line
-      (items.length > 1 ? `<button type="button" class="ot-next">${t('topicNext')} <span class="num">${i + 1} / ${items.length}</span></button>` : '');
-    const b = el.querySelector('.ot-next');
-    if (b) b.addEventListener('click', () => { pos.set(key, i + 1); render(el, o, now); });
+    el.innerHTML = `<p>${esc(items[i])}</p>`; // no heading: just the text, set off by the gold line
   }
-  return { render, load };
+  // call when a card is opened (not on the once-a-second refresh): the next opening shows the next topic
+  function opened(o) {
+    const k = keyOf(o) || o.kind;
+    pos.set(k, pos.has(k) ? pos.get(k) + 1 : 0);
+    savePos();
+  }
+  return { render, load, opened };
 }

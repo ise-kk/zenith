@@ -28,7 +28,7 @@ function basisFromEuler(a, b, g) {
 }
 
 export function createAR(deps) {
-  const { $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES, OI, TR } = deps;
+  const { $, st, DATA, STAR_RGB, S, A, rgb, skyState, horToEq, conAt, focusCon, dir, dir8, mag, esc, hm, md, SKIES, OI, TR, TP } = deps;
   const magL = (m) => (JA ? `${mag(m)}等` : `mag ${mag(m)}`);
   const fShort = (f) => (JA ? f.short : f.shortEn || f.short);
   let sel = null, satSel = null, aimObj = null, aimTarget = null, satPts = [], starPts = [], plPtsLast = [], lastCard = 0, arTarget = null;
@@ -423,6 +423,7 @@ export function createAR(deps) {
   const card = $('ar-sat');
   const cardHandlers = { con: (id) => { closeObj(); focusCon(id); }, pass: () => { } };
   function openObj(o) {
+    if (TP) TP.opened(o);
     sel = o; satSel = o.kind === 'sat' ? o.sat : null; lastCard = 0;
     const c = $('card'); if (c) c.hidden = true; st.focusCon = null;
     card.hidden = false; root.classList.add('sat-open'); card.scrollTop = 0;
