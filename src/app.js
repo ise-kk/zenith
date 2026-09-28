@@ -932,14 +932,12 @@ const ocHandlers = { con: (id) => { closeObj(); focusCon(id); }, pass: (p) => { 
 function openObj(o) {
   TP.opened(o);
   if (st.focusCon) focusCon(null);
-  st.sel = o; ocard.hidden = false; ocard.classList.remove('tall'); document.querySelector('.legend').hidden = true;
+  st.sel = o; ocard.hidden = false; document.querySelector('.legend').hidden = true;
   OI.render(ocard, o, new Date(st.t), ocHandlers); ocard.scrollTop = 0;
 }
 function closeObjCard() { ocard.hidden = true; if (!st.focusCon) document.querySelector('.legend').hidden = false; }
 function closeObj() { st.sel = null; closeObjCard(); }
 $('ocard-close').addEventListener('click', closeObj);
-// phone: the card opens low (the sky and tonight's path stay visible); scrolling inside it pulls it up to show every row
-ocard.addEventListener('scroll', () => { if (!PHONE.matches) return; if (ocard.scrollTop > 8) ocard.classList.add('tall'); else if (ocard.scrollTop === 0) ocard.classList.remove('tall'); }, { passive: true });
 setInterval(() => { if (st.sel && !ocard.hidden) OI.render(ocard, st.sel, new Date(st.t), ocHandlers); }, 1000);
 
 // ---------- かざすモード ----------
