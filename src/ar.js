@@ -34,11 +34,34 @@ export function createAR(deps) {
   let sel = null, satSel = null, aimObj = null, aimTarget = null, satPts = [], starPts = [], plPtsLast = [], lastCard = 0, arTarget = null;
   const root = $('ar'), cv = $('arc'), ctx = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1, on = false, raf = 0;
-  let fov = 62; // vertical field of view, degrees
+  let fov = 62; // vertical field of view, degrees (camera off: free zoom; camera on: saved camera view / zoom)
   let cam0 = null; // camera MediaStream when the camera background is on
-  const camFovKey = 'zenith.camfov';
-  const loadCamFov = () => { try { return +localStorage.getItem(camFovKey) || 66; } catch (e) { return 66; } };
-  const saveCamFov = () => { try { localStorage.setItem(camFovKey, String(Math.round(fov * 10) / 10)); } catch (e) { } };
+  // v27: the camera's true field of view is measured once (with the Moon) and saved as the focal length
+  // relative to the video's long side, so it holds for either orientation and any screen crop.
+  // Pinch then zooms the video and the sky together (the overlay can no longer drift from the scenery).
+  const LEGACY_FOV = 'zenith.camfov', CAL_KEY = 'zenith.camcal';
+  const legacyFov = () => { try { return +localStorage.getItem(LEGACY_FOV) || 66; } catch (e) { return 66; } };
+  const loadCal = () => { try { const o = JSON.parse(localStorage.getItem(CAL_KEY) || 'null'); return o && o.fn > 0.2 && o.fn < 3 ? o : null; } catch (e) { return null; } };
+  let cal = loadCal();
+  function saveCal(o) { cal = o; try { if (o) localStorage.setItem(CAL_KEY, JSON.stringify(o)); else localStorage.removeItem(CAL_KEY); } catch (e) { } }
+  // v28: display level — 'all' (every figure, as before), 'aim' (only the aimed figure), 'gaze' (just the sky)
+  let view = (() => { try { const v = localStorage.getItem('zenith.arview'); return v === 'aim' ? 'aim' : 'all'; } catch (e) { return 'all'; } })();
+  let peekT = 0;
+  let zoomK = 1; // camera zoom factor (video and sky together)
+  let calib = null, hand = null; // Moon measurement / manual adjustment in progress
+  const recent = []; // last raw orientations (for a steady reading when a button is pressed)
+  function vidDims() { const v = $('ar-video'); return v && v.videoWidth > 0 ? [v.videoWidth, v.videoHeight] : null; }
+  const fOf = (vfov) => (H / 2) / Math.tan(vfov * D2R / 2); // focal length on screen, px
+  const vfovOf = (f) => 2 * Math.atan((H / 2) / f) / D2R;
+  const cover = (d) => Math.max(W / d[0], H / d[1]); // object-fit: cover scale
+  function camBaseFov() {
+    if (hand) return hand.fov;
+    const d = vidDims();
+    if (cal && d) return vfovOf(cal.fn * Math.max(d[0], d[1]) * cover(d));
+    return legacyFov();
+  }
+  const camFovNow = () => 2 * Math.atan(Math.tan(camBaseFov() * D2R / 2) / zoomK) / D2R;
+  function toFn(f) { const d = vidDims(); return d ? f / cover(d) / Math.max(d[0], d[1]) : null; }
   let sensor = false, headingOffset = null, lastEvt = 0, compassAcc = null;
   let cam = { v: enu(35, 180), u: [0, 0, 1], r: [1, 0, 0] };
   let target = null; // smoothed toward
@@ -70,7 +93,7 @@ export function createAR(deps) {
       const good = e.beta > 10 && e.beta < 80 && Math.abs(e.gamma) < 25 && !(compassAcc > 30 || compassAcc < 0);
       const off = ((360 - e.webkitCompassHeading) - alpha + 720) % 360;
       if (headingOffset == null) { if (!good) { calNeeded(true); return; } headingOffset = off; calNeeded(false); }
-      else if (good) { const d = ((off - headingOffset + 540) % 360) - 180; if (Math.abs(d) < 45) headingOffset = (headingOffset + d * 0.1 + 360) % 360; }
+      else if (good && !calib) { const d = ((off - headingOffset + 540) % 360) - 180; if (Math.abs(d) < 45) headingOffset = (headingOffset + d * 0.1 + 360) % 360; }
       alpha = alpha + headingOffset;
     } else if (!absolute) {
       return; // relative-only alpha without a compass cannot be tied to north
@@ -86,6 +109,7 @@ export function createAR(deps) {
     const fwd = b.z.map(v => -v); // back camera looks along -z
     target = { v: fwd, u: up, r: right };
     sensor = true; lastEvt = performance.now();
+    recent.push({ t: lastEvt, b: target }); while (recent.length && lastEvt - recent[0].t > 300) recent.shift();
   }
   const onRel = (e) => onOrient(e, !!e.absolute);
   const onAbs = (e) => onOrient(e, true);
@@ -122,9 +146,10 @@ export function createAR(deps) {
     if (drag && drag.moved < 6) tap(e.clientX, e.clientY);
     drag = null;
   });
-  cv.addEventListener('wheel', e => { e.preventDefault(); fov = Math.max(20, Math.min(100, fov * (1 + e.deltaY * 0.001))); if (cam0) { saveCamFov(); fovNote(); } }, { passive: false });
-  cv.addEventListener('touchstart', e => { if (e.touches.length === 2) pinch = { d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), fov }; }, { passive: true });
-  cv.addEventListener('touchmove', e => { if (pinch && e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); fov = Math.max(20, Math.min(100, pinch.fov * pinch.d / d)); if (cam0) { saveCamFov(); fovNote(); } } }, { passive: true });
+  const setZoom = (z) => { zoomK = Math.max(1, Math.min(8, z)); applyZoom(); };
+  cv.addEventListener('wheel', e => { e.preventDefault(); if (cam0) { if (!hand) setZoom(zoomK * (1 - e.deltaY * 0.001)); } else fov = Math.max(20, Math.min(100, fov * (1 + e.deltaY * 0.001))); }, { passive: false });
+  cv.addEventListener('touchstart', e => { if (e.touches.length === 2) pinch = { d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), fov, z: zoomK }; }, { passive: true });
+  cv.addEventListener('touchmove', e => { if (pinch && e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); if (cam0) { if (!hand) setZoom(pinch.z * d / pinch.d); } else fov = Math.max(20, Math.min(100, pinch.fov * pinch.d / d)); } }, { passive: true });
   cv.addEventListener('touchend', e => { if (e.touches.length < 2) pinch = null; });
 
   function screenDir(x, y) {
@@ -134,6 +159,8 @@ export function createAR(deps) {
   // A deliberate tap on something (satellite, planet, Moon, named star) opens its card.
   // Tapping empty sky does nothing (closes an open card); constellations open from the reticle label.
   function tap(x, y) {
+    if (hand) return;
+    if (view === 'gaze') { peek(); return; }
     let best = null, bd = Infinity;
     const consider = (list, rad, get) => { for (const q of list) { const dd = Math.hypot(q.x - x, q.y - y); if (dd < rad && dd < bd) { bd = dd; best = get(q); } } };
     consider(satPts, 34, q => q.train ? { kind: 'train', g: q.train } : { kind: 'sat', sat: q.sat });
@@ -163,6 +190,8 @@ export function createAR(deps) {
 
   function draw() {
     updateCamera();
+    if (cam0) fov = camFovNow();
+    if (calib) { drawCalib(); return; }
     const d = new Date(st.t), obs = st.place;
     const map = S.horizonMapper(d, obs);
     const sun = S.bodyAltAz(A.Body.Sun, d, obs);
@@ -207,9 +236,12 @@ export function createAR(deps) {
 
     // constellation figures
     const stroke = (c) => { for (const seg of c.lines) { let prev = null; for (const [ra, dec] of seg) { const h = map(ra, dec); const p = PA(h.alt, h.az); if (p && prev) { ctx.moveTo(prev[0], prev[1]); ctx.lineTo(p[0], p[1]); } prev = p; } } };
-    ctx.lineWidth = 1; ctx.strokeStyle = `rgba(150,170,210,${0.12 + 0.1 * nightK})`;
-    ctx.beginPath(); for (const c of DATA.cons) if (c.id !== active) stroke(c); ctx.stroke();
-    if (active) {
+    const gaze = view === 'gaze';
+    if (view === 'all') {
+      ctx.lineWidth = 1; ctx.strokeStyle = `rgba(150,170,210,${0.12 + 0.1 * nightK})`;
+      ctx.beginPath(); for (const c of DATA.cons) if (c.id !== active) stroke(c); ctx.stroke();
+    }
+    if (active && !gaze) {
       ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(246,232,200,.9)';
       ctx.beginPath(); for (const c of DATA.cons) if (c.id === active) stroke(c); ctx.stroke();
       ctx.setLineDash([2, 5]); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(242,196,109,.4)';
@@ -238,13 +270,13 @@ export function createAR(deps) {
       ctx.fillStyle = rgb(c, a); ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
       const inf = DATA.info[i];
       if (inf) starPts.push({ x: p[0], y: p[1], i });
-      if (inf && ((DATA.cons[s[4]] && DATA.cons[s[4]].id === active && s[2] < 3.6) || s[2] < 1.5)) labels.push([p[0], p[1], starLabel(i)]);
+      if (inf && !gaze && ((DATA.cons[s[4]] && DATA.cons[s[4]].id === active && s[2] < 3.6) || s[2] < 1.5)) labels.push([p[0], p[1], starLabel(i)]);
     }
     ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = 'rgba(232,230,222,.85)'; ctx.textAlign = 'left';
     for (const [x, y, t] of labels) ctx.fillText(t, x + 8, y - 6);
 
     // constellation name at its label point
-    if (active && active !== aimCon) {
+    if (active && active !== aimCon && !gaze) {
       const c0 = DATA.cons.find(c => c.id === active);
       const h = map(c0.lab[0], c0.lab[1]); const p = PA(h.alt, h.az);
       if (p) { ctx.font = '700 20px "Shippori Mincho", serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)'; ctx.fillText(conName(c0), p[0], p[1] + 26); ctx.textAlign = 'left'; }
@@ -252,7 +284,7 @@ export function createAR(deps) {
 
     // meteor radiants
     for (const sh of S.SHOWERS) {
-      if (!S.showerActive(sh, d)) continue;
+      if (gaze || !S.showerActive(sh, d)) continue;
       const h = map(sh.ra, sh.dec); const p = PA(h.alt, h.az); if (!p || h.alt < 0) continue;
       ctx.strokeStyle = 'rgba(242,196,109,.8)'; ctx.lineWidth = 1.2;
       for (let q = 0; q < 8; q++) { const an = q * Math.PI / 4; ctx.beginPath(); ctx.moveTo(p[0] + Math.cos(an) * 9, p[1] + Math.sin(an) * 9); ctx.lineTo(p[0] + Math.cos(an) * 20, p[1] + Math.sin(an) * 20); ctx.stroke(); }
@@ -266,7 +298,7 @@ export function createAR(deps) {
       const h = S.bodyAltAz(pl.body, d, obs); if (h.alt < -1) continue; const p = PA(h.alt, h.az); if (!p) continue;
       const m = A.Illumination(pl.body, d).mag; const rad = Math.max(2, Math.min(6, 3 - m * 0.6)) * zoom;
       ctx.fillStyle = 'rgba(255,236,200,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,226,170,.95)'; ctx.fillText(`${planetName(pl)} ${magL(m)}`, p[0] + 10, p[1] + 4);
+      if (!gaze) { ctx.fillStyle = 'rgba(255,226,170,.95)'; ctx.fillText(`${planetName(pl)} ${magL(m)}`, p[0] + 10, p[1] + 4); }
       plPts.push({ name: planetName(pl), body: pl.body, m, x: p[0], y: p[1], o: { kind: 'planet', body: pl.body, ja: pl.ja, en: pl.en } });
     }
     const mh = S.bodyAltAz(A.Body.Moon, d, obs);
@@ -284,7 +316,7 @@ export function createAR(deps) {
       ctx.fillStyle = 'rgba(40,44,56,.95)'; ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
       const kx = 2 * ill - 1; ctx.fillStyle = '#eef0f4'; ctx.beginPath(); ctx.arc(0, 0, rr, -Math.PI / 2, Math.PI / 2, false); ctx.ellipse(0, 0, Math.abs(kx) * rr, rr, 0, Math.PI / 2, -Math.PI / 2, kx > 0); ctx.fill();
       ctx.restore();
-      ctx.fillStyle = 'rgba(230,234,242,.9)'; ctx.fillText(t('arMoonLabel', Math.round(ill * 100)), mp[0] + rr + 8, mp[1] + 4);
+      if (!gaze) { ctx.fillStyle = 'rgba(230,234,242,.9)'; ctx.fillText(t('arMoonLabel', Math.round(ill * 100)), mp[0] + rr + 8, mp[1] + 4); }
       plPts.push({ name: t('moon'), body: A.Body.Moon, m: A.Illumination(A.Body.Moon, d).mag, x: mp[0], y: mp[1], o: { kind: 'moon', body: A.Body.Moon, ja: '月' } });
     }
     if (sun.alt > -1) { const p = PA(sun.alt, sun.az); if (p) { const gg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 60); gg.addColorStop(0, 'rgba(255,245,220,1)'); gg.addColorStop(1, 'rgba(255,220,160,0)'); ctx.fillStyle = gg; ctx.fillRect(p[0] - 60, p[1] - 60, 120, 120); ctx.fillStyle = '#ffd9a0'; ctx.fillText(t('arSunLabel'), p[0] + 20, p[1] + 4); } }
@@ -298,11 +330,11 @@ export function createAR(deps) {
       const vis = lk.sunlit && sun.alt < -6 && lk.mag < lm + 0.5;
       const feat = S.FEATURED[sat.id], sel = satSel && satSel.id === sat.id;
       const vec = enu(lk.alt, lk.az);
-      if (!vis && !feat && !sel && dot(vec, cam.v) < nearC) continue;
+      if (gaze ? !vis : (!vis && !feat && !sel && dot(vec, cam.v) < nearC)) continue;
       const p = P(vec); if (!p) continue;
       if (vis) { ctx.fillStyle = '#f4f8ff'; ctx.beginPath(); ctx.arc(p[0], p[1], Math.max(2, 3 - lk.mag * 0.6) * zoom, 0, Math.PI * 2); ctx.fill(); }
       else { ctx.strokeStyle = feat || sel ? 'rgba(200,215,240,.7)' : 'rgba(180,200,235,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p[0], p[1], feat || sel ? 5 : 3.5, 0, Math.PI * 2); ctx.stroke(); }
-      if (feat) { ctx.fillStyle = '#f2c46d'; ctx.fillText(fShort(feat) + (vis ? ` ${magL(lk.mag)}` : t('arInShadowL')), p[0] + 10, p[1] - 8); }
+      if (feat && !gaze) { ctx.fillStyle = '#f2c46d'; ctx.fillText(fShort(feat) + (vis ? ` ${magL(lk.mag)}` : t('arInShadowL')), p[0] + 10, p[1] - 8); }
       satPts.push({ sat, lk, vis, x: p[0], y: p[1] });
     }
     // Starlink trains (bunched members only, sunlit against a dark sky)
@@ -314,10 +346,10 @@ export function createAR(deps) {
         ctx.fillStyle = 'rgba(236,244,255,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], 2 * zoom, 0, Math.PI * 2); ctx.fill();
         if (!head) head = p;
       }
-      if (head) { ctx.fillStyle = 'rgba(236,244,255,.85)'; ctx.fillText(t('trainShort'), head[0] + 10, head[1] - 8); satPts.push({ train: c.g.id, x: head[0], y: head[1] }); }
+      if (head && !gaze) { ctx.fillStyle = 'rgba(236,244,255,.85)'; ctx.fillText(t('trainShort'), head[0] + 10, head[1] - 8); satPts.push({ train: c.g.id, x: head[0], y: head[1] }); }
     }
     // the selected satellite: its path for the next few minutes, with a marker on "now"
-    if (satSel) {
+    if (satSel && !gaze) {
       ctx.strokeStyle = 'rgba(242,196,109,.8)'; ctx.lineWidth = 1.6; ctx.setLineDash([4, 5]); ctx.beginPath();
       let prev = null, tip = null;
       for (let s2 = -120; s2 <= 360; s2 += 15) {
@@ -338,10 +370,10 @@ export function createAR(deps) {
     plPtsLast = plPts;
     if (sel && performance.now() - lastCard > (sel.kind === 'sat' ? 500 : 1500)) { renderCard(d); lastCard = performance.now(); }
     // search target: a ring when in view, otherwise an arrow at the edge pointing the way
-    if (arTarget) drawTarget(d, P, cx, cy);
+    if (arTarget && !gaze) drawTarget(d, P, cx, cy);
 
     // horizon line, ground shade, compass ticks
-    ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(190,205,235,.55)';
+    ctx.lineWidth = gaze ? 1 : 1.2; ctx.strokeStyle = gaze ? 'rgba(190,205,235,.22)' : 'rgba(190,205,235,.55)';
     ctx.beginPath(); let prevH = null;
     for (let az = 0; az <= 360; az += 2) { const p = PA(0, az); if (p && prevH) { ctx.moveTo(prevH[0], prevH[1]); ctx.lineTo(p[0], p[1]); } prevH = p; }
     ctx.stroke();
@@ -349,6 +381,7 @@ export function createAR(deps) {
     for (let az = 0; az < 360; az += 15) {
       const p = PA(0, az); if (!p) continue;
       const card = az % 90 === 0, mid = az % 45 === 0;
+      if (gaze) { if (mid) { ctx.font = card ? '14px "Zen Kaku Gothic New", sans-serif' : '11px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = card ? 'rgba(210,218,236,.42)' : 'rgba(190,200,222,.3)'; ctx.fillText(dir8(az), p[0], p[1] + 22); } continue; }
       ctx.strokeStyle = 'rgba(190,205,235,.5)'; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(p[0], p[1] + (card ? 12 : 6)); ctx.stroke();
       if (mid) { ctx.font = card ? '700 16px "Zen Kaku Gothic New", sans-serif' : '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = card ? 'rgba(236,240,248,.95)' : 'rgba(180,192,215,.8)'; ctx.fillText(dir8(az), p[0], p[1] + (card ? 30 : 24)); }
     }
@@ -361,7 +394,7 @@ export function createAR(deps) {
     }
 
     // guide to the next space-station pass
-    guide(d, P, f, cx, cy);
+    if (gaze) $('ar-guide').hidden = true; else guide(d, P, f, cx, cy);
 
     // reticle readout
     const where = t('arWhere', dir(look.az), Math.round(look.az), Math.round(look.alt));
@@ -437,7 +470,7 @@ export function createAR(deps) {
     if (aimTarget.kind === 'con') { closeObj(); focusCon(aimTarget.id); }
     else openObj(aimTarget);
   });
-  function setTarget(o) { arTarget = o; if (o.kind !== 'con') openObj(o); hint(t('arGuideTo', OI.nameOf(o))); }
+  function setTarget(o) { if (view === 'gaze') setView('all', true); arTarget = o; if (o.kind !== 'con') openObj(o); hint(t('arGuideTo', OI.nameOf(o))); }
   function drawTarget(d, P, cx, cy) {
     const p = OI.posOf(arTarget, d); if (!p) return;
     const vec = enu(p.alt, p.az), q = P(vec);
@@ -472,7 +505,8 @@ export function createAR(deps) {
     try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; }
   }
   function close() {
-    cameraOff(); closeObj(); arTarget = null;
+    cameraOff(); closeObj(); arTarget = null; $('ar-undo').hidden = true;
+    if (view === 'gaze') { let v = 'all'; try { v = localStorage.getItem('zenith.arview') === 'aim' ? 'aim' : 'all'; } catch (e) { } setView(v, true); }
     on = false; root.hidden = true; document.body.classList.remove('ar-on'); cancelAnimationFrame(raf);
     removeEventListener('deviceorientationabsolute', onAbs); removeEventListener('deviceorientation', onRel);
     sensor = false; headingOffset = null; userOffset = 0; calNeeded(false);
@@ -488,7 +522,7 @@ export function createAR(deps) {
     try {
       cam0 = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       const v = $('ar-video'); v.srcObject = cam0; v.hidden = false; await v.play().catch(() => { });
-      fov = loadCamFov(); btn.setAttribute('aria-pressed', 'true'); root.classList.add('cam');
+      zoomK = 1; applyZoom(); btn.setAttribute('aria-pressed', 'true'); root.classList.add('cam'); $('ar-fovbtn').hidden = false;
       hint(t('arCamHint'));
     } catch (e) {
       cam0 = null; btn.setAttribute('aria-pressed', 'false');
@@ -499,10 +533,172 @@ export function createAR(deps) {
     if (cam0) cam0.getTracks().forEach(t => t.stop());
     cam0 = null; const v = $('ar-video'); v.srcObject = null; v.hidden = true;
     $('ar-cam').setAttribute('aria-pressed', 'false'); root.classList.remove('cam'); fov = 62;
+    endCalib(); endHand(false); closeMenu(); zoomK = 1; applyZoom(); $('ar-fovbtn').hidden = true;
   }
   $('ar-cam').addEventListener('click', () => { cam0 ? cameraOff() : cameraOn(); });
   $('ar-red').addEventListener('click', () => { const r = root.classList.toggle('red'); $('ar-red').setAttribute('aria-pressed', String(r)); });
-  addEventListener('resize', () => { if (on) resize(); });
+
+  // ---------- display level (v28) ----------
+  const VIEWS = ['all', 'aim', 'gaze'], VL = { all: 'viewAll', aim: 'viewAim', gaze: 'viewGaze' }, VT = { all: 'viewToastAll', aim: 'viewToastAim', gaze: 'viewToastGaze' };
+  function note(txt, ms = 2500) { const n = $('ar-fov'); n.textContent = txt; n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, ms); }
+  function setView(v, quiet) {
+    view = v; root.dataset.view = v; root.classList.toggle('gaze', v === 'gaze'); root.classList.remove('peek');
+    $('ar-view-l').textContent = t(VL[v]);
+    if (v === 'gaze') { closeObj(); closeMenu(); }
+    if (v !== 'gaze') { try { localStorage.setItem('zenith.arview', v); } catch (e) { } }
+    if (!quiet) note(t(VT[v]), v === 'gaze' ? 3000 : 1800);
+  }
+  function peek() { root.classList.add('peek'); clearTimeout(peekT); peekT = setTimeout(() => root.classList.remove('peek'), 3000); }
+  $('ar-view').addEventListener('click', () => setView(VIEWS[(VIEWS.indexOf(view) + 1) % 3]));
+  // while peeking, any control press keeps the controls up a little longer
+  root.addEventListener('click', e => { if (view === 'gaze' && root.classList.contains('peek') && e.target.closest('button')) peek(); }, true);
+  setView(view, true);
+
+  // ---------- camera zoom & field of view (v27) ----------
+  function applyZoom() {
+    const v = $('ar-video'); v.style.transform = zoomK > 1.001 ? `scale(${zoomK})` : '';
+    const z = $('ar-zoom'); z.hidden = !(cam0 && zoomK > 1.02 && !calib && !hand);
+    if (!z.hidden) z.innerHTML = t('zoomBack', zoomK.toFixed(1), !!cal);
+  }
+  $('ar-zoom').addEventListener('click', () => setZoom(1));
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const fovPair = (vf) => { const f = fOf(vf); return [vf.toFixed(1), (2 * Math.atan((W / 2) / f) / D2R).toFixed(1)]; };
+  // menu
+  const menu = $('ar-fovmenu');
+  function openMenu() {
+    closeObj();
+    const base = camBaseFov();
+    $('fm-h').textContent = cal ? t('fmTitleReg') : t('fmTitleNone');
+    const [v, h] = fovPair(base);
+    $('fm-sub').innerHTML = esc(t('fmSub', v, h)) + '<br>' + esc(cal ? (cal.src === 'moon' ? t('fmSrcMoon', cal.date) : t('fmSrcHand', cal.date)) : t('fmSrcNone'));
+    let legacy = null; try { legacy = localStorage.getItem(LEGACY_FOV); } catch (e) { }
+    $('fm-clear').hidden = !cal && !legacy;
+    menu.hidden = false;
+  }
+  function closeMenu() { menu.hidden = true; }
+  $('ar-fovbtn').addEventListener('click', () => { menu.hidden ? openMenu() : closeMenu(); });
+  $('fm-close').addEventListener('click', closeMenu);
+  $('fm-moon').addEventListener('click', () => { closeMenu(); startCalib(); });
+  $('fm-hand').addEventListener('click', () => { closeMenu(); startHand(); });
+  let undoT = 0;
+  $('fm-clear').addEventListener('click', () => {
+    let legacy = null; try { legacy = localStorage.getItem(LEGACY_FOV); localStorage.removeItem(LEGACY_FOV); } catch (e) { }
+    const prev = cal; saveCal(null); closeMenu(); applyZoom();
+    const u = $('ar-undo'); u.querySelector('span').textContent = t('fmCleared'); u.hidden = false;
+    u.querySelector('button').onclick = () => { saveCal(prev); try { if (legacy) localStorage.setItem(LEGACY_FOV, legacy); } catch (e) { } u.hidden = true; applyZoom(); };
+    clearTimeout(undoT); undoT = setTimeout(() => { u.hidden = true; }, 5000);
+  });
+  // by hand: a slider for nights without the Moon (the pre-v27 way, made easier)
+  function startHand() {
+    if (!cam0) return;
+    hint(''); hand = { fov: camBaseFov() }; setZoom(1);
+    const r = $('hand-r'); r.value = String(hand.fov); $('hand-v').textContent = t('fovV', hand.fov.toFixed(1));
+    root.classList.add('hand'); $('ar-hand').hidden = false; applyZoom();
+  }
+  function endHand(save) {
+    if (!hand) return;
+    if (save) {
+      const fn = toFn(fOf(hand.fov));
+      if (fn) saveCal({ fn: Math.round(fn * 1e4) / 1e4, src: 'hand', date: today() });
+      else { try { localStorage.setItem(LEGACY_FOV, String(Math.round(hand.fov * 10) / 10)); } catch (e) { } }
+    }
+    hand = null; root.classList.remove('hand'); $('ar-hand').hidden = true; applyZoom();
+  }
+  $('hand-r').addEventListener('input', e => { if (hand) { hand.fov = +e.target.value; $('hand-v').textContent = t('fovV', hand.fov.toFixed(1)); } });
+  $('hand-save').addEventListener('click', () => endHand(true));
+  $('hand-cancel').addEventListener('click', () => endHand(false));
+
+  // with the Moon: put it in the left ring, turn, put it in the right ring. Only the phone's own rotation
+  // between the two presses is used, so compass error cancels out; the Moon is so far away that turning
+  // your body (which also moves the phone sideways) does not bias the result.
+  const RING = { l: 0.16, r: 0.84, y: 0.4 };
+  function steady() {
+    if (!recent.length) return target;
+    const sum = (k) => norm(recent.reduce((a, q) => a.map((c, i) => c + q.b[k][i]), [0, 0, 0]));
+    const v = sum('v'); let u = sum('u'); u = norm(u.map((c, i) => c - dot(u, v) * v[i]));
+    return { v, u, r: cross(v, u) };
+  }
+  function moonText() {
+    const now = new Date(), obs = st.place;
+    const m = S.bodyAltAz(A.Body.Moon, now, obs);
+    if (m.alt > 2) return { up: true, html: t('cbP1', esc(dir(m.az)), Math.round(m.alt)) };
+    let when = '';
+    try {
+      const r = A.SearchRiseSet(A.Body.Moon, new A.Observer(obs.lat, obs.lon, 0), +1, A.MakeTime(now), 2);
+      if (r) when = t('cbRise', md(r.date), hm(r.date), dir(S.bodyAltAz(A.Body.Moon, r.date, obs).az));
+    } catch (e) { }
+    return { up: false, html: esc(t('cbNoMoon', when)) };
+  }
+  function startCalib() {
+    if (!cam0) { hint(t('cbNoCam')); return; }
+    closeObj(); endHand(false); setZoom(1);
+    hint(''); calib = { step: 1 }; root.classList.add('calib'); $('ar-calib').hidden = false; applyZoom(); renderCalib();
+  }
+  function endCalib() { if (!calib) return; calib = null; root.classList.remove('calib'); $('ar-calib').hidden = true; applyZoom(); }
+  function renderCalib() {
+    const c = calib; if (!c) return;
+    const L = $('cb-l'), R = $('cb-r'), go = $('cb-go');
+    L.style.left = (W * RING.l) + 'px'; R.style.left = (W * RING.r) + 'px'; L.style.top = R.style.top = (H * RING.y) + 'px';
+    L.hidden = R.hidden = c.step > 2;
+    L.classList.toggle('dim', c.step !== 1); R.classList.toggle('dim', c.step !== 2);
+    $('cb-meter').hidden = c.step !== 2;
+    $('cb-again').hidden = c.step !== 3;
+    $('cb-cancel').hidden = c.step === 3;
+    go.disabled = false;
+    if (c.step === 1) {
+      $('cb-step').textContent = '1 / 2 · ' + t('cbTitle'); $('cb-h').textContent = t('cbH1');
+      const mt = moonText();
+      if (!sensor) { $('cb-p').textContent = t('cbNoSensor'); go.disabled = true; }
+      else { $('cb-p').innerHTML = mt.html; go.disabled = !mt.up; }
+      go.textContent = t('cbGo');
+    } else if (c.step === 2) {
+      $('cb-step').textContent = '2 / 2 · ' + t('cbTitle'); $('cb-h').textContent = t('cbH2'); $('cb-p').innerHTML = t('cbP2'); go.textContent = t('cbGo');
+    } else if (c.step === 3) {
+      const [v, h] = fovPair(c.vf);
+      $('cb-step').textContent = t('cbTitle'); $('cb-h').textContent = t('cbDone');
+      $('cb-p').innerHTML = esc(t('fmSub', v, h)) + '<br>' + esc(t('cbDoneP')); go.textContent = t('cbOk');
+    } else {
+      $('cb-step').textContent = t('cbTitle'); $('cb-h').textContent = t('cbFail'); $('cb-p').textContent = c.why; go.textContent = t('cbAgain');
+    }
+  }
+  function drawCalib() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(0, 0, W, H);
+    if (calib.step === 2 && calib.b1 && target) {
+      const a = Math.acos(Math.max(-1, Math.min(1, dot(calib.b1.v, target.v)))) / D2R;
+      $('cb-meter').innerHTML = `${a.toFixed(1)}°<small>${esc(t('cbTurned'))}</small>`;
+    }
+  }
+  function solveCalib(b1, b2) {
+    const x1 = W * RING.l - W / 2, x2 = W * RING.r - W / 2, y = H * RING.y - H / 2;
+    const at = (b, x, f) => norm(b.v.map((c, i) => c + (x / f) * b.r[i] - (y / f) * b.u[i]));
+    const turned = Math.acos(Math.max(-1, Math.min(1, dot(b1.v, b2.v)))) / D2R;
+    if (turned < 10) return { why: t('cbFailSmall') };
+    let best = null;
+    for (let vf = 12; vf <= 140; vf += 0.05) {
+      const f = fOf(vf), e = Math.acos(Math.max(-1, Math.min(1, dot(at(b1, x1, f), at(b2, x2, f))))) / D2R;
+      if (!best || e < best.e) best = { vf, f, e };
+    }
+    if (best.e > 1.5) return { why: t('cbFailTilt') };
+    const fn = toFn(best.f); if (!fn) return { why: t('cbFailOdd') };
+    const longFov = 2 * Math.atan(0.5 / fn) / D2R;
+    if (longFov < 35 || longFov > 115) return { why: t('cbFailOdd') };
+    return { fn, vf: best.vf, e: best.e };
+  }
+  $('cb-go').addEventListener('click', () => {
+    const c = calib; if (!c) return;
+    if (c.step === 1) { c.b1 = steady(); c.step = 2; }
+    else if (c.step === 2) {
+      const r = solveCalib(c.b1, steady());
+      if (r.fn) { saveCal({ fn: Math.round(r.fn * 1e4) / 1e4, src: 'moon', date: today() }); c.vf = r.vf; c.step = 3; }
+      else { c.why = r.why; c.step = 4; }
+    } else if (c.step === 3) { endCalib(); return; }
+    else { calib = { step: 1 }; }
+    renderCalib();
+  });
+  $('cb-again').addEventListener('click', () => { calib = { step: 1 }; renderCalib(); });
+  $('cb-cancel').addEventListener('click', endCalib);
+  addEventListener('resize', () => { if (on) { resize(); renderCalib(); } });
   document.addEventListener('visibilitychange', async () => { if (on && document.visibilityState === 'visible' && navigator.wakeLock) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { } } });
-  return { open, close, isOn: () => on, setTarget, _look: (alt, az) => { look = { alt, az }; } };
+  return { open, close, isOn: () => on, setTarget, setView, _look: (alt, az) => { look = { alt, az }; }, _cal: { solveCalib, startCalib, get cal() { return cal; }, set target(b) { target = b; sensor = true; lastEvt = performance.now(); recent.length = 0; } } };
 }
