@@ -4,12 +4,26 @@
 import { orbitOf, describeSat } from './satinfo.js';
 import { t, JA, kmText } from './i18n.js';
 import { conName, starLabel, planetName, showerName } from './names.js';
+import { createPhoto } from './photo.js';
 const D2R = Math.PI / 180;
+const FEW_MAG = 2.5; // 'few' display level: 1st and 2nd-magnitude stars (a '2等星' is up to 2.5) + planets, Moon
 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const enu = (alt, az) => { const ca = Math.cos(alt * D2R); return [ca * Math.sin(az * D2R), ca * Math.cos(az * D2R), Math.sin(alt * D2R)]; };
+// 3x3 rotations as flat arrays (row-major)
+const mv = (M, a) => [M[0] * a[0] + M[1] * a[1] + M[2] * a[2], M[3] * a[0] + M[4] * a[1] + M[5] * a[2], M[6] * a[0] + M[7] * a[1] + M[8] * a[2]];
+const mm = (A, B) => { const o = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o.push(A[i * 3] * B[j] + A[i * 3 + 1] * B[3 + j] + A[i * 3 + 2] * B[6 + j]); return o; };
+const mt = (M) => [M[0], M[3], M[6], M[1], M[4], M[7], M[2], M[5], M[8]];
+// the smallest rotation taking unit vector a onto unit vector b (Rodrigues)
+function rotAtoB(a, b) {
+  const k = cross(a, b), s = Math.hypot(k[0], k[1], k[2]), c = dot(a, b);
+  if (s < 1e-9) return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  const [x, y, z] = k.map(v => v / s), C = 1 - c;
+  return [c + x * x * C, x * y * C - z * s, x * z * C + y * s, y * x * C + z * s, c + y * y * C, y * z * C - x * s, z * x * C - y * s, z * y * C + x * s, c + z * z * C];
+}
+export { rotAtoB, mv, mm, mt };
 const altaz = (d) => ({ alt: Math.asin(Math.max(-1, Math.min(1, d[2]))) / D2R, az: (Math.atan2(d[0], d[1]) / D2R + 360) % 360 });
 
 // Rough magnetic declination for Japan (deg, east positive). West ~7.6° in Tokyo, ~9.3° in Sapporo, ~5° in Naha.
@@ -45,10 +59,14 @@ export function createAR(deps) {
   let cal = loadCal();
   function saveCal(o) { cal = o; try { if (o) localStorage.setItem(CAL_KEY, JSON.stringify(o)); else localStorage.removeItem(CAL_KEY); } catch (e) { } }
   // v28: display level — 'all' (every figure, as before), 'aim' (only the aimed figure), 'gaze' (just the sky)
-  let view = (() => { try { const v = localStorage.getItem('zenith.arview'); return v === 'aim' ? 'aim' : 'all'; } catch (e) { return 'all'; } })();
+  let view = (() => { try { const v = localStorage.getItem('zenith.arview'); return v === 'aim' || v === 'few' ? v : 'all'; } catch (e) { return 'all'; } })();
   let peekT = 0;
   let zoomK = 1; // camera zoom factor (video and sky together)
   let calib = null, hand = null; // Moon measurement / manual adjustment in progress
+  // field test: one-point pointing fix. A rotation applied to the sensor orientation so that where the
+  // reticle points becomes the true direction of the Moon / a planet / a 1st-magnitude star. Fixes left-right
+  // and up-down at once, has no ±20° limit, and lasts only while the pointing view is open (v20 lesson).
+  let alignR = null, alignPrev = null, aligning = false, alignCand = null, undoT = 0;
   const recent = []; // last raw orientations (for a steady reading when a button is pressed)
   function vidDims() { const v = $('ar-video'); return v && v.videoWidth > 0 ? [v.videoWidth, v.videoHeight] : null; }
   const fOf = (vfov) => (H / 2) / Math.tan(vfov * D2R / 2); // focal length on screen, px
@@ -107,7 +125,7 @@ export function createAR(deps) {
     const right = norm(b.x.map((v, i) => Math.cos(th) * v - Math.sin(th) * b.y[i]));
     const up = norm(b.x.map((v, i) => Math.sin(th) * v + Math.cos(th) * b.y[i]));
     const fwd = b.z.map(v => -v); // back camera looks along -z
-    target = { v: fwd, u: up, r: right };
+    target = alignR ? { v: mv(alignR, fwd), u: mv(alignR, up), r: mv(alignR, right) } : { v: fwd, u: up, r: right };
     sensor = true; lastEvt = performance.now();
     recent.push({ t: lastEvt, b: target }); while (recent.length && lastEvt - recent[0].t > 300) recent.shift();
   }
@@ -159,7 +177,7 @@ export function createAR(deps) {
   // A deliberate tap on something (satellite, planet, Moon, named star) opens its card.
   // Tapping empty sky does nothing (closes an open card); constellations open from the reticle label.
   function tap(x, y) {
-    if (hand) return;
+    if (hand || aligning) return;
     if (view === 'gaze') { peek(); return; }
     let best = null, bd = Infinity;
     const consider = (list, rad, get) => { for (const q of list) { const dd = Math.hypot(q.x - x, q.y - y); if (dd < rad && dd < bd) { bd = dd; best = get(q); } } };
@@ -216,7 +234,7 @@ export function createAR(deps) {
     const nightK = Math.max(0, Math.min(1, (sky.lm - 1) / 4));
 
     // Milky Way (faint)
-    if (nightK > 0.1 && !cam0) {
+    if (nightK > 0.1 && !cam0 && view !== 'few') {
       DATA.mw.forEach((polys, li) => {
         ctx.fillStyle = `rgba(190,200,230,${(0.03 + li * 0.006) * nightK * Math.max(0, SKIES[st.sky].lm - 3.5) / 3})`;
         ctx.beginPath();
@@ -253,15 +271,16 @@ export function createAR(deps) {
     // stars (brighter than the phone's small screen needs: scale radius with fov)
     const zoom = Math.max(0.8, Math.min(2.2, 62 / fov));
     const lm = sky.lm;
+    const lmCut = view === 'few' ? Math.min(lm, FEW_MAG) : lm; // 'few': naked-eye-in-moonlight level
     const labels = [];
     starPts = [];
     for (let i = 0; i < DATA.stars.length; i++) {
-      const s = DATA.stars[i]; if (s[2] > lm) break;
+      const s = DATA.stars[i]; if (s[2] > lmCut) break;
       const h = map(s[0], s[1]); if (h.alt < -1) continue;
       const vec = enu(h.alt, h.az); if (!inView(vec)) continue;
       const p = P(vec); if (!p) continue;
       const air = 1 / Math.max(Math.sin((Math.max(h.alt, 0) + 244 / (165 + 47 * Math.pow(Math.max(h.alt, 0.01), 1.1))) * D2R), 0.02);
-      const m = s[2] + 0.25 * (air - 1); if (m > lm) continue;
+      const m = s[2] + 0.25 * (air - 1); if (m > lm) continue; // 'few' cuts on the catalogue magnitude (the break above)
       const kk = Math.pow(10, -0.4 * (m - lm));
       const rad = Math.min(0.6 + Math.sqrt(kk) * 0.6, 5) * zoom;
       const a = Math.min(1, 0.3 + kk * 0.12);
@@ -395,6 +414,7 @@ export function createAR(deps) {
 
     // guide to the next space-station pass
     if (gaze) $('ar-guide').hidden = true; else guide(d, P, f, cx, cy);
+    if (aligning) drawAlign(d, obs, P, cx, cy);
 
     // reticle readout
     const where = t('arWhere', dir(look.az), Math.round(look.az), Math.round(look.alt));
@@ -494,7 +514,14 @@ export function createAR(deps) {
   function showFix() { const n = $('ar-fov'); n.textContent = t('arFix', (userOffset >= 0 ? '+' : '') + userOffset.toFixed(1)); n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, 2500); }
   function hint(t) { const h = $('ar-hint'); h.textContent = t; h.hidden = !t; clearTimeout(hint.t); if (t) hint.t = setTimeout(() => { h.hidden = true; }, 5000); }
 
-  function frame() { if (!on) return; draw(); raf = requestAnimationFrame(frame); }
+  // ---------- photo overlay (field test D) ----------
+  let photoOn = false;
+  const PH = createPhoto({ $, st, DATA, S, A, t, esc, hm, md, dir, starLabel, planetName, conName, openObj, closeObj, root,
+    onOpen: () => { photoOn = true; closeObj(); endAlign(); closeMenu(); if (view === 'gaze') setView('all', true); },
+    onClose: () => { photoOn = false; closeObj(); } });
+  $('ar-photo').addEventListener('click', () => PH.pick());
+
+  function frame() { if (!on) return; if (!photoOn) draw(); raf = requestAnimationFrame(frame); }
 
   async function open() {
     on = true; root.hidden = false; document.body.classList.add('ar-on'); resize(); frame();
@@ -505,8 +532,9 @@ export function createAR(deps) {
     try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; }
   }
   function close() {
-    cameraOff(); closeObj(); arTarget = null; $('ar-undo').hidden = true;
-    if (view === 'gaze') { let v = 'all'; try { v = localStorage.getItem('zenith.arview') === 'aim' ? 'aim' : 'all'; } catch (e) { } setView(v, true); }
+    PH.close(); cameraOff(); closeObj(); arTarget = null; $('ar-undo').hidden = true;
+    if (view === 'gaze') { let v = 'all'; try { const q = localStorage.getItem('zenith.arview'); v = q === 'aim' || q === 'few' ? q : 'all'; } catch (e) { } setView(v, true); }
+    endAlign(); alignR = null; alignPrev = null;
     on = false; root.hidden = true; document.body.classList.remove('ar-on'); cancelAnimationFrame(raf);
     removeEventListener('deviceorientationabsolute', onAbs); removeEventListener('deviceorientation', onRel);
     sensor = false; headingOffset = null; userOffset = 0; calNeeded(false);
@@ -538,8 +566,56 @@ export function createAR(deps) {
   $('ar-cam').addEventListener('click', () => { cam0 ? cameraOff() : cameraOn(); });
   $('ar-red').addEventListener('click', () => { const r = root.classList.toggle('red'); $('ar-red').setAttribute('aria-pressed', String(r)); });
 
+  // ---------- one-point pointing fix (field test A) ----------
+  function alignCands(d, obs) {
+    const out = [], map = S.horizonMapper(d, obs);
+    const m = S.bodyAltAz(A.Body.Moon, d, obs); if (m.alt > -1) out.push({ name: t('moon'), vec: enu(m.alt, m.az), alt: m.alt, az: m.az });
+    for (const pl of S.PLANETS) { if (A.Illumination(pl.body, d).mag > 2.5) continue; const h = S.bodyAltAz(pl.body, d, obs); if (h.alt > -1) out.push({ name: planetName(pl), vec: enu(h.alt, h.az), alt: h.alt, az: h.az }); }
+    for (let i = 0; i < DATA.stars.length; i++) { const s = DATA.stars[i]; if (s[2] > 1.5) break; const h = map(s[0], s[1]); if (h.alt > -1) out.push({ name: starLabel(i), vec: enu(h.alt, h.az), alt: h.alt, az: h.az }); }
+    return out;
+  }
+  const angDeg = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) / D2R;
+  function nearestCand(d, obs, v) { let best = null; for (const c of alignCands(d, obs)) { const a = angDeg(v, c.vec); if (!best || a < best.a) best = { ...c, a }; } return best; }
+  const ALIGN_MAX = 45; // farther than this is more likely the wrong object than a drift
+  const alignP = $('ar-alignp');
+  function startAlign() { closeObj(); closeMenu(); hint(''); aligning = true; root.classList.add('aligning'); alignP.hidden = false; }
+  function endAlign() { aligning = false; alignCand = null; root.classList.remove('aligning'); alignP.hidden = true; }
+  function drawAlign(d, obs, P, cx, cy) {
+    const c = nearestCand(d, obs, cam.v); alignCand = c && c.a <= ALIGN_MAX ? c : null;
+    const go = $('al-go');
+    if (!sensor) { $('al-h').textContent = t('alH'); $('al-p').textContent = t('alNoSensor'); go.disabled = true; return; }
+    if (!alignCand) { $('al-h').textContent = t('alH'); $('al-p').textContent = t('alNone'); go.disabled = true; return; }
+    go.disabled = false;
+    $('al-h').textContent = t('alH2', alignCand.name);
+    $('al-p').innerHTML = esc(t('alNear', alignCand.name, alignCand.a.toFixed(alignCand.a < 10 ? 1 : 0))) + '<br>' + esc(t('alWhat'));
+    const q = P(alignCand.vec);
+    if (q) {
+      ctx.strokeStyle = '#f2c46d'; ctx.lineWidth = 1.6; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(cx, cy); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(q[0], q[1], 16, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  function doAlign() {
+    const c = alignCand; if (!c || !sensor) return;
+    const cur = steady(); if (!cur) return;
+    const Q = rotAtoB(norm(cur.v), c.vec);
+    const now = altaz(cur.v), dAz = ((c.az - now.az + 540) % 360) - 180, dAlt = c.alt - now.alt;
+    alignPrev = alignR; alignR = alignR ? mm(Q, alignR) : Q;
+    if (target) target = { v: mv(Q, target.v), u: mv(Q, target.u), r: mv(Q, target.r) };
+    recent.length = 0;
+    endAlign();
+    const sg = (x) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(Math.abs(x) < 10 ? 1 : 0);
+    const u = $('ar-undo'); u.querySelector('span').textContent = t('alDone', c.name, sg(dAz), sg(dAlt)); u.hidden = false;
+    const prev = alignPrev;
+    u.querySelector('button').textContent = t('alBack');
+    u.querySelector('button').onclick = () => { const back = prev ? mm(prev, mt(alignR)) : mt(alignR); alignR = prev; if (target) target = { v: mv(back, target.v), u: mv(back, target.u), r: mv(back, target.r) }; recent.length = 0; u.hidden = true; };
+    clearTimeout(undoT); undoT = setTimeout(() => { u.hidden = true; }, 6000);
+  }
+  $('ar-align').addEventListener('click', () => { aligning ? endAlign() : startAlign(); });
+  $('al-go').addEventListener('click', doAlign);
+  $('al-cancel').addEventListener('click', endAlign);
+
   // ---------- display level (v28) ----------
-  const VIEWS = ['all', 'aim', 'gaze'], VL = { all: 'viewAll', aim: 'viewAim', gaze: 'viewGaze' }, VT = { all: 'viewToastAll', aim: 'viewToastAim', gaze: 'viewToastGaze' };
+  const VIEWS = ['all', 'aim', 'few', 'gaze'], VL = { all: 'viewAll', aim: 'viewAim', few: 'viewFew', gaze: 'viewGaze' }, VT = { all: 'viewToastAll', aim: 'viewToastAim', few: 'viewToastFew', gaze: 'viewToastGaze' };
   function note(txt, ms = 2500) { const n = $('ar-fov'); n.textContent = txt; n.hidden = false; clearTimeout(fovNote.t); fovNote.t = setTimeout(() => { n.hidden = true; }, ms); }
   function setView(v, quiet) {
     view = v; root.dataset.view = v; root.classList.toggle('gaze', v === 'gaze'); root.classList.remove('peek');
@@ -549,7 +625,7 @@ export function createAR(deps) {
     if (!quiet) note(t(VT[v]), v === 'gaze' ? 3000 : 1800);
   }
   function peek() { root.classList.add('peek'); clearTimeout(peekT); peekT = setTimeout(() => root.classList.remove('peek'), 3000); }
-  $('ar-view').addEventListener('click', () => setView(VIEWS[(VIEWS.indexOf(view) + 1) % 3]));
+  $('ar-view').addEventListener('click', () => setView(VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length]));
   // while peeking, any control press keeps the controls up a little longer
   root.addEventListener('click', e => { if (view === 'gaze' && root.classList.contains('peek') && e.target.closest('button')) peek(); }, true);
   setView(view, true);
@@ -580,11 +656,10 @@ export function createAR(deps) {
   $('fm-close').addEventListener('click', closeMenu);
   $('fm-moon').addEventListener('click', () => { closeMenu(); startCalib(); });
   $('fm-hand').addEventListener('click', () => { closeMenu(); startHand(); });
-  let undoT = 0;
   $('fm-clear').addEventListener('click', () => {
     let legacy = null; try { legacy = localStorage.getItem(LEGACY_FOV); localStorage.removeItem(LEGACY_FOV); } catch (e) { }
     const prev = cal; saveCal(null); closeMenu(); applyZoom();
-    const u = $('ar-undo'); u.querySelector('span').textContent = t('fmCleared'); u.hidden = false;
+    const u = $('ar-undo'); u.querySelector('span').textContent = t('fmCleared'); u.querySelector('button').textContent = t('undo'); u.hidden = false;
     u.querySelector('button').onclick = () => { saveCal(prev); try { if (legacy) localStorage.setItem(LEGACY_FOV, legacy); } catch (e) { } u.hidden = true; applyZoom(); };
     clearTimeout(undoT); undoT = setTimeout(() => { u.hidden = true; }, 5000);
   });
@@ -700,5 +775,5 @@ export function createAR(deps) {
   $('cb-cancel').addEventListener('click', endCalib);
   addEventListener('resize', () => { if (on) { resize(); renderCalib(); } });
   document.addEventListener('visibilitychange', async () => { if (on && document.visibilityState === 'visible' && navigator.wakeLock) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { } } });
-  return { open, close, isOn: () => on, setTarget, setView, _look: (alt, az) => { look = { alt, az }; }, _cal: { solveCalib, startCalib, get cal() { return cal; }, set target(b) { target = b; sensor = true; lastEvt = performance.now(); recent.length = 0; } } };
+  return { open, close, isOn: () => on, setTarget, setView, _look: (alt, az) => { look = { alt, az }; }, _align: { get R() { return alignR; }, start: startAlign, go: doAlign, get cand() { return alignCand; } }, _photo: PH, _cal: { solveCalib, startCalib, get cal() { return cal; }, set target(b) { target = b; sensor = true; lastEvt = performance.now(); recent.length = 0; } } };
 }
