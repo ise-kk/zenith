@@ -21,9 +21,17 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <title>Zenith</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Fonts are served from this site (subset to the characters the app uses; SIL OFL 1.1, see fonts/OFL-*.txt).
+   Nothing is fetched from other servers. Missing characters fall back to the system font. */
+@font-face{font-family:"Shippori Mincho";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/shippori-mincho-500.woff2) format("woff2")}
+@font-face{font-family:"Shippori Mincho";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/shippori-mincho-700.woff2) format("woff2")}
+@font-face{font-family:"Zen Kaku Gothic New";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/zen-kaku-gothic-new-400.woff2) format("woff2")}
+@font-face{font-family:"Zen Kaku Gothic New";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/zen-kaku-gothic-new-500.woff2) format("woff2")}
+@font-face{font-family:"Zen Kaku Gothic New";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/zen-kaku-gothic-new-700.woff2) format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/jetbrains-mono-400.woff2) format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/jetbrains-mono-500.woff2) format("woff2")}
+</style>
 <style>
 :root{
   color-scheme: dark;
@@ -255,6 +263,7 @@ textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);b
 #ar .ar-top,#ar .ar-bar{transition:opacity .35s}
 #ar.gaze .ar-reticle,#ar.gaze #ar-aim,#ar.gaze #ar-where,#ar.gaze #ar-guide,#ar.gaze #ar-acc,#ar.gaze #ar-hint{display:none}
 #ar.gaze:not(.peek) .ar-top,#ar.gaze:not(.peek) .ar-bar,#ar.gaze:not(.peek) #ar-zoom{opacity:0;pointer-events:none}
+#al-m{font-size:14px;color:#f6e8c8;margin:-4px 0 10px}
 #ar.aligning .ar-bar,#ar.aligning #ar-zoom,#ar.aligning #ar-guide,#ar.aligning #ar-aim{display:none}
 #ar-align[aria-pressed="true"],#ar.aligning #ar-align{border-color:var(--gold);color:var(--gold)}
 #ar .ar-top{gap:6px}#ar-where{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -623,11 +632,12 @@ body.ar-on #tip{display:none}
     <div class="cb-row"><button type="button" id="hand-save" class="cb-main" data-t="handSave">保存</button><button type="button" id="hand-cancel" data-t="cbCancel">やめる</button></div>
   </div>
   <div id="ar-alignp" class="ar-sheet" hidden>
-    <div class="kicker" data-t="alBtn">向きを合わせる</div>
+    <div class="kicker" id="al-k">向きを合わせる</div>
     <h3 id="al-h"></h3>
     <p id="al-p"></p>
-    <button type="button" id="al-go" class="cb-main" data-t="alGo">合わせる</button>
-    <div class="cb-row"><button type="button" id="al-cancel" data-t="cbCancel">やめる</button></div>
+    <div id="al-m" class="num"></div>
+    <button type="button" id="al-go" class="cb-main" hidden></button>
+    <div class="cb-row"><button type="button" id="al-keep" data-t="alKeep">このまま決定</button><button type="button" id="al-cancel" data-t="cbCancel">やめる</button></div>
   </div>
   <div id="ar-ph" hidden>
     <canvas id="ph-cv" aria-label="写真"></canvas>
