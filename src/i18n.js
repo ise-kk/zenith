@@ -192,6 +192,13 @@ const D = {
   arCamFail: { ja: 'カメラを起動できませんでした', en: 'Could not start the camera' },
   arFov: { ja: (f) => `視野 ${f}° · 2本指で星と景色を合わせる`, en: (f) => `Field ${f}° · pinch to match stars and scenery` },
   arFix: { ja: (v) => `方位の補正 ${v}° · 月や明るい星に合わせて左右にずらす`, en: (v) => `Compass fix ${v}° · slide sideways to line up with the Moon or a bright star` },
+  // v31: satellite filter and richer satellite cards
+  satfBright: { ja: '明るいものだけ', en: 'Bright only' }, satfAll: { ja: 'すべて', en: 'All' }, satFilterAria: { ja: '人工衛星の表示', en: 'Satellites shown' },
+  satBrightNote: { ja: (m) => `人工衛星：宇宙ステーションと、推定${m}等より明るいもの（星図・かざすも同じ）`, en: (m) => `Satellites: space stations and those brighter than about mag ${m} (also on the map and in Point)` },
+  satAllNote: { ja: (m, n) => `人工衛星：明るい衛星として知られる約${n}個（宇宙ステーションを含む）のうち、空の暗さで見えるものすべて（星図・かざすも同じ）`, en: (m, n) => `Satellites: of the ~${n} known bright satellites (incl. space stations), all that are visible under your sky (also on the map and in Point)` },
+  faintBright: { ja: (n) => `ほかに暗い人工衛星の通過が${n}回あります（「すべて」で表示）。`, en: (n) => `There are ${n} more passes of fainter satellites (shown under “All”).` },
+  dockedNow: { ja: 'ドッキング中', en: 'Docked' }, dockedHow: { ja: '軌道データで同じ位置を飛んでいるもの', en: 'flying at the same place in the orbit data' },
+  orbitKind: { ja: '軌道の種類', en: 'Orbit' }, visHow: { ja: '見え方', en: 'Seeing it' },
   // field test 2026-09-30: one-point pointing fix, fewer stars, photo overlay
   viewFew: { ja: '少なめ', en: 'Fewer stars' }, viewToastFew: { ja: '星を少なめに（2等星まで＋惑星・月）', en: 'Fewer stars (1st and 2nd magnitude + planets, Moon)' },
   alBtn: { ja: '向きを合わせる', en: 'Line up' },

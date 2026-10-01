@@ -5,6 +5,7 @@ import { createSearch } from './search.js';
 import { createTrains } from './trains.js';
 import { createShare } from './share.js';
 import { createTopics } from './topics.js';
+import { describeSat, BRIGHT_MAG } from './satinfo.js';
 import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT } from './i18n.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
@@ -44,6 +45,7 @@ const st = {
   t: Date.now(), live: true, rate: 1,
   sats: [], passes: [], win: null, events: [], hover: null, focusPass: null, computing: false,
   focusCon: null, showLines: store.get('lines', false),
+  satFilter: store.get('satFilter', 'bright'), docked: new Map(),
 };
 
 const TR = createTrains({ st, S });
@@ -316,15 +318,16 @@ function draw() {
   }
 
   // satellite pass tracks for the focused / upcoming passes
-  const showPasses = st.focusPass ? [st.focusPass] : st.passes.filter(p => p.end.t > st.t - 60e3 && p.start.t < st.t + 3 * 3600e3).slice(0, 6);
+  const showPasses = st.focusPass ? [st.focusPass] : st.passes.filter(p => passShown(p) && p.end.t > st.t - 60e3 && p.start.t < st.t + 3 * 3600e3).slice(0, 6);
   for (const p of showPasses) drawPass(p, p === st.focusPass);
 
   // live satellites
   const satHits = [];
   const sunE = null;
   for (const sat of st.sats) {
+    if (st.docked.has(sat.id)) continue; // a ship or module riding on a station: drawn as the station
     const lk = S.satLook(sat, d, obs, sunE); if (!lk || lk.alt < 0) continue;
-    const vis = lk.sunlit && sun.alt < -6 && lk.mag < lm + 0.5;
+    const vis = lk.sunlit && sun.alt < -6 && lk.mag < lm + 0.5 && (st.satFilter === 'all' || lk.mag <= BRIGHT_MAG);
     const featured = !!S.FEATURED[sat.id];
     if (!vis && !featured) continue;
     const [x, y] = proj(lk.alt, lk.az);
@@ -570,7 +573,8 @@ async function computePasses() {
   if (!st.sats.length && !TR.groups().length) { st.passes = []; st.trainPasses = []; renderTonight(); return; }
   st.computing = true; renderTonight();
   const t0 = new Date(Math.max(st.win.sunset.getTime(), (st.live ? Date.now() : st.t) - 15 * 60e3));
-  st.passes = await S.findPasses(st.sats, t0, st.win.sunrise, st.place, (k) => { $('calc').textContent = t('calcPasses', (k * 100) | 0); });
+  st.docked = findDocked(st.sats, t0);
+  st.passes = await S.findPasses(st.sats.filter(s => !st.docked.has(s.id)), t0, st.win.sunrise, st.place, (k) => { $('calc').textContent = t('calcPasses', (k * 100) | 0); });
   try { st.trainPasses = await TR.passes(t0, st.win.sunrise, st.place); } catch (e) { st.trainPasses = []; }
   // next space-station passes over the coming 5 days (for when none remain tonight)
   const stations = st.sats.filter(x => S.FEATURED[x.id]);
@@ -588,15 +592,15 @@ function renderTonight() {
   const w = st.win; if (!w) return;
   $('night-date').textContent = t('nightOf', md(w.sunset), placeName(st.place));
   const visAll = st.passes.filter(p => p.mag < SKIES[st.sky].lm - 0.5);
-  // keep the list calm: space stations always, other satellites only when easy to see
-  const vis = visAll.filter(p => S.FEATURED[p.sat.id] || p.mag < 3);
+  // 'bright only' (default): space stations always, other satellites only when easy to see; 'all': everything visible
+  const vis = visAll.filter(passShown);
   const faint = visAll.length - vis.length;
   const items = [
     ...st.events.map(e => ({ ...e, type: 'ev' })),
     ...vis.map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
     ...(st.trainPasses || []).map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
   ].sort((a, b) => a.t - b.t);
-  const passName = (p) => p.kind === 'train' ? t('train') : S.FEATURED[p.sat.id] ? fShort(S.FEATURED[p.sat.id]) : titleCase(p.sat.name);
+  const passName = (p) => p.kind === 'train' ? t('train') : S.FEATURED[p.sat.id] ? fShort(S.FEATURED[p.sat.id]) : (describeSat(p.sat).ja || titleCase(p.sat.name));
 
   // one-line summary for the phone sheet: the next thing that happens tonight
   const nowMs = st.live ? Date.now() : st.t;
@@ -627,16 +631,36 @@ function renderTonight() {
     const p = it.p, dur = Math.max(1, Math.round((p.end.t - p.start.t) / 60e3));
     if (p.kind === 'train') return `<li class="ev k-pass k-train${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(t('train'))}</span><span class="ss">${t('trainPassSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur)}</span></button></li>`;
     const f = S.FEATURED[p.sat.id];
-    return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? fName(f) : titleCase(p.sat.name))}</span><span class="ss">${t('passSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, mag(p.mag))}</span></button></li>`;
+    const nice = f ? null : describeSat(p.sat).ja;
+    return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? fName(f) : (nice || titleCase(p.sat.name)))}${nice ? `<small>${esc(titleCase(p.sat.name))}</small>` : ''}</span><span class="ss">${t('passSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, mag(p.mag))}</span></button></li>`;
   }).join('');
   $('tonight').querySelectorAll('[data-pass]').forEach(b => b.addEventListener('click', () => {
     const it = items[+b.dataset.pass]; st.focusPass = it.p; setTime(it.p.start.t - 30e3, 10);
     markActive(b); sheetTo('peek');
   }));
   $('tonight').querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
-  $('faint-note').textContent = faint > 0 ? t('faint', faint) : '';
+  $('faint-note').textContent = faint > 0 ? t('faintBright', faint) : '';
+  document.querySelectorAll('[data-satf]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.satf === st.satFilter)));
+  $('satf-note').textContent = t(st.satFilter === 'all' ? 'satAllNote' : 'satBrightNote', BRIGHT_MAG, Math.round(st.sats.length / 10) * 10);
   renderScrubTicks(items);
 }
+// satellites that fly with a space station (docked ships, its own modules): within a few km of it now and 20 min later
+function findDocked(sats, d) {
+  const out = new Map();
+  const stations = sats.filter(s => S.FEATURED[s.id]); if (!stations.length) return out;
+  const d2 = new Date(d.getTime() + 20 * 60e3);
+  const pos = (s, t) => { const e = S.satEci(s, t); return e && e.position; };
+  const near = (a, b) => a && b && Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 25;
+  const ref = stations.map(s => ({ s, p1: pos(s, d), p2: pos(s, d2) }));
+  for (const s of sats) {
+    if (S.FEATURED[s.id]) continue;
+    const p1 = pos(s, d); if (!p1) continue;
+    for (const r of ref) if (near(p1, r.p1) && near(pos(s, d2), r.p2)) { out.set(s.id, r.s.id); break; }
+  }
+  return out;
+}
+const passShown = (p) => p.kind === 'train' || S.FEATURED[p.sat.id] || st.satFilter === 'all' || p.mag <= BRIGHT_MAG;
+document.querySelectorAll('[data-satf]').forEach(b => b.addEventListener('click', () => { st.satFilter = b.dataset.satf; store.set('satFilter', st.satFilter); renderTonight(); }));
 function titleCase(s) { return s.replace(/\s+/g, ' ').trim(); }
 function markActive(b) { document.querySelectorAll('#tonight button').forEach(x => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true'); }
 

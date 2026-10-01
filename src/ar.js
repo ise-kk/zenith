@@ -1,7 +1,7 @@
 // "かざすモード": point the phone at the sky. Orientation sensors -> camera basis in
 // local East-North-Up coordinates -> gnomonic (pinhole) projection of the live sky.
 // Without sensors (PC, Claude viewer) the view is dragged by hand.
-import { orbitOf, describeSat } from './satinfo.js';
+import { orbitOf, describeSat, BRIGHT_MAG } from './satinfo.js';
 import { t, JA, kmText } from './i18n.js';
 import { conName, starLabel, planetName, showerName } from './names.js';
 import { createPhoto } from './photo.js';
@@ -346,8 +346,9 @@ export function createAR(deps) {
     satPts = [];
     const nearC = Math.cos(Math.min(18, fov * 0.3) * D2R);
     for (const sat of st.sats) {
+      if (st.docked && st.docked.has(sat.id)) continue; // flies with a station: drawn as the station
       const lk = S.satLook(sat, d, obs); if (!lk || lk.alt < 0) continue;
-      const vis = lk.sunlit && sun.alt < -6 && lk.mag < lm + 0.5;
+      const vis = lk.sunlit && sun.alt < -6 && lk.mag < lm + 0.5 && (st.satFilter === 'all' || lk.mag <= BRIGHT_MAG);
       const feat = S.FEATURED[sat.id], sel = satSel && satSel.id === sat.id;
       const vec = enu(lk.alt, lk.az);
       if (gaze ? !vis : (!vis && !feat && !sel && dot(vec, cam.v) < nearC)) continue;

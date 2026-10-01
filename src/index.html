@@ -118,6 +118,13 @@ aside{grid-row:2/4;grid-column:2;border-left:1px solid var(--line);overflow:auto
 .fold[data-fold="data"][open]{display:flex;flex-direction:column;gap:10px}
 #calc{color:var(--gold);font-family:var(--ui);letter-spacing:0;text-transform:none}
 ol,ul{list-style:none;margin:0;padding:0}
+.satf{display:flex;margin:4px 0 4px;border:1px solid var(--line-hi);border-radius:16px;overflow:hidden;max-width:360px}
+.satf button{flex:1;height:30px;font-size:12.5px;color:var(--muted)}
+.satf button[aria-pressed="true"]{background:var(--ink);color:var(--night);font-weight:500}
+.satf-note{margin:2px 0 6px;font-size:11.5px;color:var(--muted)}
+.ev .tt small{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:6px;font-weight:400}
+.oc-more{margin:0;font-size:12.5px;line-height:1.75;color:#c9cfdb;border-left:2px solid rgba(160,190,240,.45);padding-left:10px}
+.oc-more b{display:block;font-size:10.5px;letter-spacing:.14em;color:#a9bde6;font-weight:500}
 #tonight{position:relative}
 #tonight::before{content:"";position:absolute;left:47px;top:6px;bottom:6px;width:1px;background:var(--line)}
 .ev button{width:100%;display:grid;grid-template-columns:40px 1fr;column-gap:22px;text-align:left;padding:8px 8px 8px 0;border-radius:8px;position:relative}
@@ -475,6 +482,7 @@ body.ar-on #tip{display:none}
     <p class="oc-now"></p>
     <div class="oc-topic" hidden></div>
     <p class="oc-lead"></p>
+    <p class="oc-more" hidden></p>
     <dl class="oc-facts"></dl>
     <div class="oc-actions"></div>
     <div class="card-foot oc-foot"></div>
@@ -492,6 +500,8 @@ body.ar-on #tip{display:none}
     </section>
     <details class="fold" data-fold="tonight" open>
       <summary class="sec-h"><span data-t="flow">今夜の流れ</span><span id="calc" hidden></span></summary>
+      <div class="satf" role="group" aria-label="人工衛星" data-t-aria="satFilterAria"><button type="button" data-satf="bright" data-t="satfBright">明るいものだけ</button><button type="button" data-satf="all" data-t="satfAll">すべて</button></div>
+      <p class="satf-note" id="satf-note"></p>
       <ol id="tonight"></ol>
       <p id="faint-note"></p>
     </details>
@@ -574,6 +584,7 @@ body.ar-on #tip{display:none}
     <p class="oc-now"></p>
     <div class="oc-topic" hidden></div>
     <p class="oc-lead"></p>
+    <p class="oc-more" hidden></p>
     <dl class="oc-facts"></dl>
     <div class="oc-actions"></div>
     <div class="card-foot oc-foot"></div>

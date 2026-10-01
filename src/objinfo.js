@@ -1,7 +1,7 @@
 // One card for anything in the sky: planet, Moon, Sun, star, Messier object, satellite, meteor shower, Starlink train.
 // Used by the star map and by the pointing (AR) view. `root` holds elements with the classes
 // .oc-kind .oc-name .oc-sub .oc-now .oc-lead .oc-facts .oc-actions .oc-foot
-import { orbitOf, describeSat } from './satinfo.js';
+import { orbitOf, describeSat, visNote, orbitKind, isModule } from './satinfo.js';
 import { t, JA, TZ, LOCALE, kmText, lightTime, magT, magU } from './i18n.js';
 import { mtype, conName, starName, starAlt, messierName, planetName, showerName } from './names.js';
 export { mtype };
@@ -202,13 +202,17 @@ export function createObjInfo(deps) {
       out.sub = `${info.ja ? esc(sat.name) + ' · ' : ''}NORAD ${sat.id}${orb.cospar ? ' · ' + t('intl') + ' ' + orb.cospar : ''}`;
       out.now = up ? t('satNowUp', dir(lk.az), Math.round(lk.alt), state) : t('satNowNot', state);
       out.lead = info.note;
+      out.more = visNote(info);
+      const docked = feat ? st.sats.filter(x => st.docked && st.docked.get(x.id) === sat.id && !isModule(x)) : [];
       out.facts = [
+        docked.length ? row(t('dockedNow'), docked.map(x => { const n = describeSat(x).ja; return esc(n ? (JA ? `${n}（${x.name.trim()}）` : `${n} (${x.name.trim()})`) : x.name.trim()); }).join('<br>') + `<small>${t('dockedHow')}</small>`) : '',
         lk ? row(t('heightKm'), `${num(Math.round(lk.height))} km`) : '',
         up ? row(t('rangeKm'), `${num(Math.round(lk.range))} km`) : '',
         row(t('speedKm'), t('satSpeed', orb.speed.toFixed(1), num(Math.round(orb.speed * 36) * 100))),
         row(t('orbitOnce'), t('orbitV', orb.period.toFixed(1), orb.revs.toFixed(1))),
         row(t('orbitH'), Math.abs(orb.apogee - orb.perigee) < 30 ? t('about', `${Math.round((orb.apogee + orb.perigee) / 2)} km`) : `${Math.round(orb.perigee)}–${Math.round(orb.apogee)} km`),
         row(t('incl'), `${orb.inc.toFixed(1)}°`),
+        row(t('orbitKind'), esc(orbitKind(orb))),
         orb.launchYear ? row(t('launched'), t('yearV', orb.launchYear)) : '',
         cur ? row(t('passNow'), t('passNowV', hm(new Date(cur.end.t)), dir(cur.end.az))) : '',
         row(t('passNext'), nx ? t('passNextV', `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))}`, dir(nx.start.az), Math.round(nx.max.alt), magT(nx.mag)) : t('noPass')),
@@ -249,6 +253,7 @@ export function createObjInfo(deps) {
     const tn = tonightText(o);
     q('.oc-now').innerHTML = c.now + (tn ? `<span class="oc-tn">${tn}</span>` : '');
     q('.oc-lead').textContent = c.lead; q('.oc-lead').hidden = !c.lead;
+    const mo = q('.oc-more'); if (mo) { mo.innerHTML = c.more ? `<b>${esc(t('visHow'))}</b>${esc(c.more)}` : ''; mo.hidden = !c.more; }
     if (TP) TP.render(q('.oc-topic'), o, d);
     q('.oc-facts').innerHTML = c.facts.join('');
     const acts = q('.oc-actions');
