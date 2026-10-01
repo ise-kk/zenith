@@ -1,6 +1,6 @@
 // Offline support: always try the network first (so updates show up right away),
 // fall back to the last cached copy when offline.
-const CACHE = 'zenith-v31';
+const CACHE = 'zenith-v32';
 const FONT = 'zenith-font-v1'; // fonts never change under the same name: cache first, kept across versions
 const SHELL = ['./', 'index.html', 'app.js', 'data.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
