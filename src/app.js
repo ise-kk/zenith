@@ -590,7 +590,10 @@ async function computePasses() {
 
 function renderTonight() {
   const w = st.win; if (!w) return;
-  $('night-date').textContent = t('nightOf', md(w.sunset), placeName(st.place));
+  // v33: the page heading is "今夜 · 10/2(金)" (the tab already says 見ごろ); the line under the headline is the place
+  $('hl-kick').textContent = t('tonightKick', md(w.sunset));
+  $('night-date').textContent = placeName(st.place);
+  renderLoc();
   const visAll = st.passes.filter(p => p.mag < SKIES[st.sky].lm - 0.5);
   // 'bright only' (default): space stations always, other satellites only when easy to see; 'all': everything visible
   const vis = visAll.filter(passShown);
@@ -1035,19 +1038,70 @@ document.querySelectorAll('details.fold').forEach(d => {
   d.open = saved == null ? true : saved;
   d.addEventListener('toggle', () => store.set(key, d.open));
 });
-// ---------- phone (upright): tonight's details open as a full-screen page ----------
-// 'peek' closes it (used after jumping to a time), anything else opens it.
+// ---------- pages (v33) ----------
+// Phone upright: tabs 空・見ごろ・その他 at the bottom; 見ごろ and その他 are full-screen pages above the tabs.
+// Phone on its side and PC: the sky is always on the left, the right column switches 見ごろ／その他.
 const PHONE = matchMedia('(max-width: 980px) and (orientation: portrait)');
 const sheet = $('sheet'), sheetBody = $('sheet-body');
-function sheetTo(state) {
-  const open = state !== 'peek' && PHONE.matches;
-  sheet.classList.toggle('open', open);
-  if (!open) sheetBody.scrollTop = sheetBody.scrollTop;
+const HASH = { hl: '#highlights', more: '#more' };
+let pane = location.hash === '#more' ? 'more' : 'hl';
+let page = PHONE.matches ? (HASH[pane] === location.hash ? pane : 'sky') : pane;
+function showPage(p, fromUser) {
+  if (p !== 'sky') { if (p !== pane) sheetBody.scrollTop = 0; pane = p; }
+  if (!PHONE.matches && p === 'sky') p = pane;
+  page = p;
+  $('pane-hl').hidden = pane !== 'hl'; $('pane-more').hidden = pane !== 'more';
+  sheet.classList.toggle('open', PHONE.matches && page !== 'sky');
+  document.querySelectorAll('#tabs [data-page]').forEach(b => { if (b.dataset.page === page) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  document.querySelectorAll('.pane-seg [data-page]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.page === pane)));
+  if (fromUser) { const h = page === 'sky' ? '' : HASH[page]; if (location.hash !== h) history.replaceState(null, '', location.pathname + location.search + h); }
 }
-$('info-open').addEventListener('click', () => { sheetBody.scrollTop = 0; sheetTo('full'); });
-$('sheet-close').addEventListener('click', () => sheetTo('peek'));
-addEventListener('keydown', e => { if (e.key === 'Escape' && sheet.classList.contains('open')) sheetTo('peek'); });
-PHONE.addEventListener && PHONE.addEventListener('change', () => sheetTo('peek'));
+// 'peek' goes back to the sky (used after jumping to a time), anything else opens 見ごろ
+function sheetTo(state) {
+  if (state === 'peek') { if (PHONE.matches) showPage('sky', true); }
+  else { sheetBody.scrollTop = 0; showPage('hl', true); }
+}
+document.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => showPage(b.dataset.page, true)));
+$('info-open').addEventListener('click', () => sheetTo('full'));
+addEventListener('keydown', e => { if (e.key === 'Escape' && sheet.classList.contains('open') && $('dlg').hidden && $('loc-pop').hidden) showPage('sky', true); });
+PHONE.addEventListener && PHONE.addEventListener('change', () => showPage(PHONE.matches ? 'sky' : pane));
+addEventListener('hashchange', () => { const p = location.hash === '#more' ? 'more' : location.hash === '#highlights' ? 'hl' : 'sky'; showPage(p); });
+showPage(page);
+
+// ---------- observing place & sky darkness: one button on the phone (v33) ----------
+// The button and its panel only drive the existing selects, so the place/sky logic stays in one place.
+function renderLoc() {
+  const here = st.place.id === 'here';
+  const pin = here ? '<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 11s4-4 4-6.5a4 4 0 0 0-8 0C2 7 6 11 6 11z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="6" cy="4.6" r="1.4" fill="currentColor"/></svg>' : '';
+  const sky = t(SKIES[st.sky].key.replace(/S$/, 'N'));
+  $('loc-btn').innerHTML = `${pin}<span class="lb-t">${esc(placeName(st.place))} <i>·</i> ${esc(sky)}</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.4"/></svg>`;
+  $('loc-btn').setAttribute('aria-label', t('locBtnAria', placeName(st.place), sky));
+  $('more-place').textContent = placeName(st.place);
+  $('more-sky').textContent = skySel.options[skySel.selectedIndex] ? skySel.options[skySel.selectedIndex].textContent : sky;
+  $('lp-here').setAttribute('aria-pressed', String(here));
+  $('lp-places').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.place === st.place.id)));
+  $('lp-skies').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sky === st.sky)));
+}
+$('lp-places').innerHTML = PLACES.map(p => `<button type="button" data-place="${p.id}">${JA ? p.ja : p.en}</button>`).join('') + `<button type="button" data-place="custom">${t('latlonShort')}</button>`;
+$('lp-skies').innerHTML = Object.entries(SKIES).map(([k, v]) => `<button type="button" data-sky="${k}"><span>${t(v.key.replace(/S$/, 'N'))}</span><small>${t('limMag', v.lm)}</small></button>`).join('');
+const locPop = $('loc-pop');
+function locOpen() { renderLoc(); locPop.hidden = false; }
+function locClose() { locPop.hidden = true; }
+$('loc-btn').addEventListener('click', locOpen);
+document.querySelectorAll('[data-loc]').forEach(b => b.addEventListener('click', locOpen));
+$('lp-close').addEventListener('click', locClose);
+locPop.addEventListener('click', e => { if (e.target === locPop) locClose(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !locPop.hidden) locClose(); });
+$('lp-here').addEventListener('click', () => { locClose(); $('geo').click(); });
+$('lp-places').addEventListener('click', e => {
+  const b = e.target.closest('[data-place]'); if (!b) return;
+  locClose();
+  sel.value = b.dataset.place; sel.dispatchEvent(new Event('change'));
+});
+$('lp-skies').addEventListener('click', e => {
+  const b = e.target.closest('[data-sky]'); if (!b) return;
+  skySel.value = b.dataset.sky; skySel.dispatchEvent(new Event('change')); renderLoc();
+});
 function boot() {
   resize();
   loadStoredTLE();

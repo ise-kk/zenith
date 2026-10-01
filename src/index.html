@@ -99,7 +99,7 @@ td{padding:5px 6px 5px 0;border-bottom:1px solid var(--line);white-space:nowrap}
 
 aside{grid-row:2/4;grid-column:2;border-left:1px solid var(--line);overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .sheet-body{padding:26px 24px 30px;display:flex;flex-direction:column;gap:26px}
-.sheet-head{display:none}
+
 .infobar{display:none}
 .stage{overflow:hidden}
 .kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--gold);text-transform:uppercase}
@@ -187,7 +187,7 @@ ol,ul{list-style:none;margin:0;padding:0}
 .hr{position:absolute;top:22px;font-size:10px;color:var(--faint);transform:translateX(-50%)}
 #cursor{position:absolute;top:-6px;width:2px;height:26px;background:var(--ink);transform:translateX(-1px);box-shadow:0 0 8px rgba(255,255,255,.5)}
 
-#dlg{position:fixed;inset:0;background:rgba(2,3,7,.7);display:grid;place-items:center;z-index:30;padding:16px}
+#dlg{position:fixed;inset:0;background:rgba(2,3,7,.7);display:grid;place-items:center;z-index:60;padding:16px}
 .dlg{width:min(620px,100%);background:var(--panel);border:1px solid var(--line-hi);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow:auto}
 .dlg h2{margin:0;font-family:var(--display);font-size:22px}
 .dlg ol{list-style:decimal;padding-left:1.3em;color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:6px}
@@ -346,20 +346,72 @@ body.ar-on #card{position:fixed;z-index:70;left:0;right:0;bottom:0;top:auto;widt
 body.ar-on #tip{display:none}
 #ar-where{white-space:nowrap}
 @media (orientation:landscape) and (max-height:600px){.ar-bar{left:auto;right:calc(env(safe-area-inset-right,0px) + 10px);top:50%;bottom:auto;transform:translateY(-50%);width:66px;flex-direction:column;gap:6px;padding:8px 4px}#ar-zoom,#ar-guide,#ar-undo{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}#ar-acc{bottom:calc(env(safe-area-inset-bottom,0px) + 60px)}}
+
+/* v33 pages: phone tabs (空・見ごろ・その他), wide segment (見ごろ／その他), location button */
+.loc-btn{display:none}
+#tabs{display:none}
+.pane-seg{display:flex;gap:4px;padding:4px;margin:18px 24px 0;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.pane-seg button{flex:1;height:34px;border-radius:9px;color:var(--muted);font-size:13.5px;letter-spacing:.08em}
+.pane-seg button[aria-pressed="true"]{background:var(--gold-dim);color:var(--gold)}
+.pane{display:flex;flex-direction:column;gap:26px}
+.pane[hidden]{display:none}
+#pane-more{display:block}
+#pane-more[hidden]{display:none}
+.kick-day{font-family:var(--ui);letter-spacing:.12em;font-size:12.5px;text-transform:none}
+.more-h{display:none}
+.more-sec{font-size:12px;color:var(--muted);letter-spacing:.1em;font-weight:500;margin:22px 0 8px}
+#pane-more>.more-sec:first-of-type{margin-top:0}
+.more-list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.more-list>li+li{border-top:1px solid var(--line)}
+.more-row{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:12px 14px;font-size:14.5px;color:var(--ink);text-align:left;cursor:pointer;list-style:none}
+.more-row::-webkit-details-marker{display:none}
+.more-row>span{flex:1}
+.more-row small{color:var(--muted);font-size:12px;text-align:right;max-width:58%}
+.more-row i{color:var(--faint);font-style:normal;transition:transform .2s}
+details[open]>.more-row i{transform:rotate(90deg)}
+.more-row select{height:30px;font-size:12.5px}
+.more-row.langsel{font-size:14.5px;color:var(--ink);gap:10px}
+.more-txt{margin:0;padding:0 14px 14px;font-size:12.5px;line-height:1.75;color:var(--muted)}
+.howto{list-style:none;display:flex;flex-direction:column;gap:6px}
+.howto i{display:inline-block;width:18px;height:0;border-top:1px dashed rgba(220,230,250,.5);vertical-align:middle;margin-right:8px}
+.howto i.lgf{border-top:2px solid var(--gold)}
+.howto i.lgr{width:10px;height:10px;border:1px solid var(--gold);border-radius:50%}
+.data-box{display:flex;flex-direction:column;gap:10px}
+.more-ver{color:var(--faint);font-size:11px;margin:16px 0 0}
+#loc-pop{position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-start;padding:calc(54px + env(safe-area-inset-top,0px)) 12px 12px;box-sizing:border-box}
+#loc-pop[hidden]{display:none}
+.lp{width:100%;max-width:420px;box-sizing:border-box;max-height:100%;overflow:auto;background:rgba(10,13,22,.98);border:1px solid var(--line-hi);border-radius:16px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.lp h4{font-size:11.5px;color:var(--muted);letter-spacing:.12em;font-weight:500;margin:2px 2px 8px}
+.lp-here,.lp-skies button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;color:var(--ink);margin-bottom:6px;text-align:left}
+.lp-here{margin-bottom:8px}
+.lp-here small,.lp-skies small{color:var(--muted);font-size:11.5px}
+.lp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.lp-chips button{padding:7px 12px;border:1px solid var(--line);border-radius:15px;font-size:13px;color:var(--ink)}
+.lp [aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.lp [aria-pressed="true"] small{color:var(--gold)}
+.lp-close{display:block;margin:8px 0 0 auto;height:34px;padding:0 16px;border-radius:17px;border:1px solid var(--line-hi);font-size:13px;color:var(--ink)}
 @media (max-width:980px) and (orientation:portrait){
   /* phone, upright: header / sky / one-line "next" bar / time controls. Nothing overlaps the controls.
      Tonight's details open as a full-screen page from the "next" bar and close back to the sky. */
   html,body{height:100%;overflow:hidden}
   .app{display:flex;flex-direction:column;height:100vh;height:100dvh;min-height:0}
-  header{flex:none;flex-wrap:wrap;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;gap:6px 8px;align-items:center}
-  .brand{margin-right:auto}
+  header{flex:none;flex-wrap:nowrap;position:relative;z-index:5;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;gap:6px 8px;align-items:center}
+  .brand{margin-right:0;flex:none}
+  .clock{flex:none}
   .brand b{font-size:11.5px}
+  :root{--tabh:calc(56px + env(safe-area-inset-bottom,0px))}
+  label[for="place"],label[for="skysel"],#geo{display:none}
+  .loc-btn{display:inline-flex;align-items:center;gap:6px;margin-right:auto;min-width:0;flex:0 1 auto;height:30px;padding:0 12px;border:1px solid var(--line);border-radius:15px;background:var(--panel);color:var(--ink);font-size:12.5px;white-space:nowrap}
+  .loc-btn .lb-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  :lang(en) .brand span{display:none}
+  .loc-btn svg{flex:none;opacity:.65}
+  .loc-btn i{color:var(--faint);font-style:normal}
   .clock{order:1;margin-left:0}
   #clock{font-size:15px}
   label[for="place"]{order:2}
   #geo{order:3}
   label[for="skysel"]{order:4}
-  #custom{order:5;width:100%}
+  #custom{position:absolute;left:0;right:0;top:100%;padding:8px 12px;background:var(--night);border-bottom:1px solid var(--line);flex-wrap:wrap}
   .field{font-size:0;gap:0}
   select{height:32px;font-size:12.5px;padding:0 6px;max-width:44vw}
   .chip{height:32px;padding:0 10px}
@@ -368,18 +420,24 @@ body.ar-on #tip{display:none}
   .infobar #peek{flex:1;min-width:0;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .infobar #peek b{color:var(--gold);font-weight:500;font-family:var(--mono);margin-right:6px}
   .infobar .go{flex:none;font-size:12px;color:var(--muted);border:1px solid var(--line-hi);border-radius:14px;padding:4px 10px}
-  .timebar{flex:none;padding:6px 12px calc(8px + env(safe-area-inset-bottom,0px));flex-wrap:wrap;gap:4px;background:var(--night)}
+  .timebar{flex:none;padding:6px 12px 6px;flex-wrap:wrap;gap:4px;background:var(--night)}
+  #tabs{display:flex;flex:none;justify-content:space-around;align-items:stretch;height:var(--tabh);box-sizing:border-box;padding:4px 6px env(safe-area-inset-bottom,0px);border-top:1px solid var(--line);background:rgba(4,6,11,.97);position:relative;z-index:45}
+  #tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--faint);font-size:10.5px;letter-spacing:.06em}
+  #tabs button[aria-current="page"]{color:var(--gold)}
+  #tabs svg{width:24px;height:24px}
+  body.ar-on #tabs{display:none}
+  .pane-seg{display:none}
+  .more-h{display:block;font-family:var(--display);font-weight:500;font-size:26px;margin:0 0 18px}
+  #share-toast{bottom:calc(var(--tabh) + 64px)}
   .rates{width:100%;justify-content:space-between}
   .rates button{height:34px;padding:0 10px}
   #scrub{flex:none;width:100%;height:38px}
-  aside{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;overflow:hidden;border:0;background:rgba(6,9,16,.985);transform:translateY(100%);visibility:hidden;transition:transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s linear .3s}
-  aside.open{transform:none;visibility:visible;transition:transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s}
-  .sheet-head{display:flex;flex:none;align-items:center;justify-content:space-between;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 10px 18px;border-bottom:1px solid var(--line)}
-  .sheet-head b{font-family:var(--display);font-size:18px}
-  #sheet-close{height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line-hi);font-size:13px;color:var(--ink)}
-  .sheet-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 18px calc(24px + env(safe-area-inset-bottom,0px));gap:20px}
+  aside{position:fixed;left:0;right:0;top:0;bottom:var(--tabh);z-index:40;display:flex;flex-direction:column;overflow:hidden;border:0;background:var(--night);opacity:0;visibility:hidden;transition:opacity .15s,visibility 0s linear .15s}
+  aside.open{opacity:1;visibility:visible;transition:opacity .15s,visibility 0s}
+  .sheet-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:calc(20px + env(safe-area-inset-top,0px)) 18px 24px;gap:20px}
+  .pane{gap:20px}
   .legend{display:none}
-  #card,#ocard{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;border-radius:18px 18px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20}
+  #card,#ocard{position:fixed;left:0;right:0;bottom:var(--tabh);top:auto;width:auto;max-height:58vh;border-radius:18px 18px 0 0;padding-bottom:18px;z-index:20}
   .stage-meta{left:12px;top:8px}
   #sky-state{font-size:16px}
   #sky{height:calc(100% - 54px)}
@@ -407,6 +465,9 @@ body.ar-on #tip{display:none}
   #clock{font-size:14px}
   aside{grid-row:2/4;grid-column:2;padding-right:env(safe-area-inset-right,0px);-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   .sheet-body{padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));gap:18px}
+  .pane{gap:18px}
+  .pane-seg{margin:10px 16px 0}
+  .pane-seg button{height:30px}
   .timebar{padding:4px 12px calc(4px + env(safe-area-inset-bottom,0px));gap:10px}
   .rates button{height:28px;padding:0 8px}
   .legend{display:none}
@@ -429,6 +490,7 @@ body.ar-on #tip{display:none}
 <div class="app">
   <header>
     <div class="brand"><b>ZENITH</b><span data-t="tagline">今夜の空</span></div>
+    <button type="button" class="loc-btn" id="loc-btn" aria-haspopup="dialog"></button>
     <label class="field" for="place"><span data-t="place">観測地</span>
       <select id="place"></select>
     </label>
@@ -491,10 +553,11 @@ body.ar-on #tip{display:none}
   </div>
 
   <aside id="sheet">
-    <div class="sheet-head"><b data-t="sheetTitle">今夜の空</b><button type="button" id="sheet-close" data-t="backToSky">空に戻る</button></div>
+    <div class="pane-seg" role="group" data-t-aria="pagesAria" aria-label="ページ"><button type="button" data-page="hl" data-t="tabHl">見ごろ</button><button type="button" data-page="more" data-t="tabMore">その他</button></div>
     <div class="sheet-body" id="sheet-body">
+    <div class="pane" id="pane-hl">
     <section>
-      <div class="kicker">Tonight</div>
+      <div class="kicker kick-day" id="hl-kick">Tonight</div>
       <p id="headline" data-t="calcHead">今夜の空を計算しています</p>
       <div id="night-date"></div>
     </section>
@@ -509,18 +572,33 @@ body.ar-on #tip{display:none}
       <summary class="sec-h"><span data-t="showers">次の流星群</span></summary>
       <ul id="showers"></ul>
     </details>
-    <details class="fold data" data-fold="data" open>
-      <summary class="sec-h" style="margin:0"><span data-t="orbitData">人工衛星の軌道データ</span></summary>
-      <div id="data-state"></div>
-      <button type="button" class="btn primary" id="open-data" data-t="addData">軌道データを入れる・更新する</button>
-    </details>
     <a class="solink" href="https://ise-kk.github.io/sol-atlas/" target="_blank" rel="noopener"><b>Sol Atlas</b><span data-t="solLink">惑星を3Dで、いまの配置で見る</span><i>→</i></a>
-    <div class="foot" id="foot-credits"></div>
-    <label class="langsel"><span data-t="language">言語</span> <select id="lang"></select></label>
+    </div>
+    <div class="pane" id="pane-more" hidden>
+      <h1 class="more-h" data-t="tabMore">その他</h1>
+      <h3 class="more-sec" data-t="display">表示</h3>
+      <ul class="more-list">
+        <li><button type="button" class="more-row" data-loc><span data-t="place">観測地</span><small id="more-place"></small><i>›</i></button></li>
+        <li><button type="button" class="more-row" data-loc><span data-t="skyDark">空の暗さ</span><small id="more-sky"></small><i>›</i></button></li>
+        <li><label class="more-row langsel"><span data-t="language">言語</span><select id="lang"></select></label></li>
+      </ul>
+      <h3 class="more-sec" data-t="howto">使い方</h3>
+      <ul class="more-list">
+        <li><details><summary class="more-row"><span data-t="howtoRow">使い方と記号の意味</span><i>›</i></summary>
+          <ul class="more-txt howto"><li data-t="lg1"></li><li data-t="lg5"></li><li><i class="lgf"></i><span data-t="lg2"></span></li><li><i class="lgd"></i><span data-t="lg3"></span></li><li><i class="lgr"></i><span data-t="lg4"></span></li></ul></details></li>
+      </ul>
+      <h3 class="more-sec" data-t="aboutApp">このアプリについて</h3>
+      <ul class="more-list">
+        <li><details><summary class="more-row"><span data-t="privacy">プライバシー</span><small data-t="privacyShort">位置・写真は送りません</small><i>›</i></summary><p class="more-txt" data-t="privacyText"></p></details></li>
+        <li><details><summary class="more-row"><span data-t="orbitData">人工衛星の軌道データ</span><i>›</i></summary><div class="more-txt data-box"><div id="data-state"></div><button type="button" class="btn primary" id="open-data" data-t="addData">軌道データを入れる・更新する</button></div></details></li>
+        <li><details><summary class="more-row"><span data-t="sources">出典とライセンス</span><i>›</i></summary><div class="more-txt foot" id="foot-credits"></div></details></li>
+      </ul>
+      <p class="more-ver num">ZENITH v33</p>
+    </div>
     </div>
   </aside>
 
-  <button type="button" class="infobar" id="info-open" aria-label="今夜の情報を開く" data-t-aria="openInfo"><span id="peek" data-t="calcHead">今夜の空を計算しています</span><span class="go" data-t="infoGo">今夜の情報 ›</span></button>
+  <button type="button" class="infobar" id="info-open" aria-label="今夜の情報を開く" data-t-aria="openInfo"><span id="peek" data-t="calcHead">今夜の空を計算しています</span></button>
 
   <div class="timebar">
     <div class="rates">
@@ -531,6 +609,23 @@ body.ar-on #tip{display:none}
       <button type="button" data-rate="600">×600</button>
     </div>
     <div id="scrub" role="slider" aria-label="今夜の時刻" data-t-aria="scrubLabel" tabindex="0"><div id="scrub-track"></div></div>
+  </div>
+
+  <nav id="tabs" data-t-aria="pagesAria" aria-label="ページ">
+    <button type="button" data-page="sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8 9.5l3.5 2.5 4-3.5" stroke-width="1.1" opacity=".8"/><circle cx="8" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="11.5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="14" cy="16" r=".9" fill="currentColor" stroke="none"/></svg><span data-t="tabSky">空</span></button>
+    <button type="button" data-page="hl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M14.2 12.3a3.2 3.2 0 1 0 1.9 4.6 2.6 2.6 0 0 1-1.9-4.6z" fill="currentColor" stroke="none"/></svg><span data-t="tabHl">見ごろ</span></button>
+    <button type="button" data-page="more"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg><span data-t="tabMore">その他</span></button>
+  </nav>
+</div>
+
+<div id="loc-pop" hidden>
+  <div class="lp" role="dialog" aria-modal="true" data-t-aria="locAria" aria-label="観測地と空の暗さ">
+    <h4 data-t="place">観測地</h4>
+    <button type="button" class="lp-here" id="lp-here"><span data-t="useHere">現在地を使う</span><small data-t="hereNote">端末の中だけで使い、送信しません</small></button>
+    <div class="lp-chips" id="lp-places"></div>
+    <h4 data-t="skyDark">空の暗さ</h4>
+    <div class="lp-skies" id="lp-skies"></div>
+    <button type="button" class="lp-close" id="lp-close" data-t="close">閉じる</button>
   </div>
 </div>
 
