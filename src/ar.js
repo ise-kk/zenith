@@ -552,7 +552,7 @@ export function createAR(deps) {
     try {
       cam0 = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       const v = $('ar-video'); v.srcObject = cam0; v.hidden = false; await v.play().catch(() => { });
-      zoomK = 1; applyZoom(); btn.setAttribute('aria-pressed', 'true'); root.classList.add('cam'); $('ar-fovbtn').hidden = false;
+      zoomK = 1; applyZoom(); btn.setAttribute('aria-pressed', 'true'); root.classList.add('cam'); $('ar-fovbtn').hidden = false; $('ar-align').hidden = false;
       hint(t('arCamHint'));
     } catch (e) {
       cam0 = null; btn.setAttribute('aria-pressed', 'false');
@@ -564,6 +564,8 @@ export function createAR(deps) {
     cam0 = null; const v = $('ar-video'); v.srcObject = null; v.hidden = true;
     $('ar-cam').setAttribute('aria-pressed', 'false'); root.classList.remove('cam'); fov = 62;
     endCalib(); endHand(false); closeMenu(); zoomK = 1; applyZoom(); $('ar-fovbtn').hidden = true;
+    // 向きを合わせるは本物の月・星が映っているときだけ（v32）。合わせた結果はそのまま残す。
+    if (aligning) cancelAlign(); $('ar-align').hidden = true;
   }
   $('ar-cam').addEventListener('click', () => { cam0 ? cameraOff() : cameraOn(); });
   $('ar-red').addEventListener('click', () => { const r = root.classList.toggle('red'); $('ar-red').setAttribute('aria-pressed', String(r)); });

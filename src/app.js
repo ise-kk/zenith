@@ -993,7 +993,9 @@ const langSel = $('lang');
 langSel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
 langSel.value = LANG;
 langSel.addEventListener('change', () => { setLang(langSel.value); const u = new URL(location.href); u.searchParams.delete('lang'); location.replace(u.toString()); });
-$('t-ar').addEventListener('click', () => ar.open());
+// かざすは本物の空に重ねる機能なので、開くときは必ず「現在」の時刻にする（v32）。
+// 時間バーで止めた・ずらした時刻のままだと、通過の案内の秒が止まったり、星や衛星の位置が本物とずれる。
+$('t-ar').addEventListener('click', () => { if (!st.live) $('now').click(); ar.open(); });
 
 // ---------- loop ----------
 let prev = performance.now();
