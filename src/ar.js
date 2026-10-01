@@ -152,6 +152,7 @@ export function createAR(deps) {
   cv.addEventListener('pointermove', e => {
     if (!drag || pinch) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved = Math.max(drag.moved, Math.hypot(dx, dy));
+    if (aligning) { const lx = drag.lx ?? drag.x, ly = drag.ly ?? drag.y; alignDrag(e.clientX - lx, e.clientY - ly); drag.lx = e.clientX; drag.ly = e.clientY; return; }
     const k = fov / H;
     if (sensor) { // sensors drive the view; a horizontal drag nudges the compass by hand
       if (Math.abs(dx) > 16 && Math.abs(dx) > 2 * Math.abs(dy)) { userOffset = Math.max(-20, Math.min(20, (drag.fix ?? (drag.fix = userOffset)) + (dx - Math.sign(dx) * 16) * k)); showFix(); }
@@ -414,7 +415,7 @@ export function createAR(deps) {
 
     // guide to the next space-station pass
     if (gaze) $('ar-guide').hidden = true; else guide(d, P, f, cx, cy);
-    if (aligning) drawAlign(d, obs, P, cx, cy);
+    if (aligning) drawAlign(d, obs, P);
 
     // reticle readout
     const where = t('arWhere', dir(look.az), Math.round(look.az), Math.round(look.alt));
@@ -576,43 +577,78 @@ export function createAR(deps) {
   }
   const angDeg = (a, b) => Math.acos(Math.max(-1, Math.min(1, dot(a, b)))) / D2R;
   function nearestCand(d, obs, v) { let best = null; for (const c of alignCands(d, obs)) { const a = angDeg(v, c.vec); if (!best || a < best.a) best = { ...c, a }; } return best; }
-  const ALIGN_MAX = 45; // farther than this is more likely the wrong object than a drift
+  // v30: two steps. 1) drag the sky with a finger until the app's Moon / star sits on the real one (any amount,
+  // both directions); 2) only when a Moon / bright planet / 1st-magnitude star is then within FINISH° of the
+  // reticle, offer "finish with it" for an exact fit. Far-off candidates are never suggested (they confused).
+  const FINISH = 5;
   const alignP = $('ar-alignp');
-  function startAlign() { closeObj(); closeMenu(); hint(''); aligning = true; root.classList.add('aligning'); alignP.hidden = false; }
+  let alignStart = null;
+  const I3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  function applyQ(Q) {
+    alignR = mm(Q, alignR || I3);
+    if (target) target = { v: mv(Q, target.v), u: mv(Q, target.u), r: mv(Q, target.r) };
+    cam = { v: mv(Q, cam.v), u: mv(Q, cam.u), r: mv(Q, cam.r) };
+    recent.length = 0;
+  }
+  function rotAxis(k, ang) { // rotation by ang (rad) about unit axis k
+    const [x, y, z] = k, c = Math.cos(ang), s = Math.sin(ang), C = 1 - c;
+    return [c + x * x * C, x * y * C - z * s, x * z * C + y * s, y * x * C + z * s, c + y * y * C, y * z * C - x * s, z * x * C - y * s, z * y * C + x * s, c + z * z * C];
+  }
+  // the sky follows the finger: dx > 0 moves it right (the view turns left), dy > 0 moves it down (the view tilts up)
+  function alignDrag(dx, dy) {
+    const k = fov / H * D2R;
+    if (dx) applyQ(rotAxis([0, 0, 1], dx * k));
+    if (dy) applyQ(rotAxis(cam.r, dy * k));
+  }
+  function alignTotals() {
+    const cur = target || cam;
+    const raw = alignR ? mv(mt(alignR), cur.v) : cur.v;
+    const before = alignStart ? mv(alignStart, raw) : raw, after = alignR ? mv(alignR, raw) : raw;
+    const a = altaz(before), b = altaz(after);
+    return { dAz: ((b.az - a.az + 540) % 360) - 180, dAlt: b.alt - a.alt };
+  }
+  const sg = (x) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(Math.abs(x) < 10 ? 1 : 0);
+  function startAlign() { closeObj(); closeMenu(); hint(''); alignStart = alignR ? alignR.slice() : null; aligning = true; root.classList.add('aligning'); alignP.hidden = false; }
   function endAlign() { aligning = false; alignCand = null; root.classList.remove('aligning'); alignP.hidden = true; }
-  function drawAlign(d, obs, P, cx, cy) {
-    const c = nearestCand(d, obs, cam.v); alignCand = c && c.a <= ALIGN_MAX ? c : null;
-    const go = $('al-go');
-    if (!sensor) { $('al-h').textContent = t('alH'); $('al-p').textContent = t('alNoSensor'); go.disabled = true; return; }
-    if (!alignCand) { $('al-h').textContent = t('alH'); $('al-p').textContent = t('alNone'); go.disabled = true; return; }
-    go.disabled = false;
-    $('al-h').textContent = t('alH2', alignCand.name);
-    $('al-p').innerHTML = esc(t('alNear', alignCand.name, alignCand.a.toFixed(alignCand.a < 10 ? 1 : 0))) + '<br>' + esc(t('alWhat'));
-    const q = P(alignCand.vec);
-    if (q) {
-      ctx.strokeStyle = '#f2c46d'; ctx.lineWidth = 1.6; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(cx, cy); ctx.stroke(); ctx.setLineDash([]);
-      ctx.beginPath(); ctx.arc(q[0], q[1], 16, 0, Math.PI * 2); ctx.stroke();
+  function cancelAlign() { // back to how it was before this session
+    if (aligning && alignR) { const back = alignStart ? mm(alignStart, mt(alignR)) : mt(alignR); applyQ(back); alignR = alignStart ? alignStart.slice() : null; }
+    endAlign();
+  }
+  function drawAlign(d, obs, P) {
+    const go = $('al-go'), keep = $('al-keep');
+    const tt = alignTotals();
+    $('al-m').textContent = t('alMeter', sg(tt.dAz), sg(tt.dAlt));
+    if (!sensor) { $('al-k').textContent = t('alBtn'); $('al-h').textContent = t('alH1'); $('al-p').textContent = t('alNoSensor'); go.hidden = true; keep.disabled = true; alignCand = null; return; }
+    keep.disabled = false;
+    const c = nearestCand(d, obs, cam.v); alignCand = c && c.a <= FINISH ? c : null;
+    if (!alignCand) {
+      $('al-k').textContent = t('alBtn') + ' · 1 / 2'; $('al-h').textContent = t('alH1'); $('al-p').textContent = t('alP1'); go.hidden = true; return;
     }
+    $('al-k').textContent = t('alBtn') + ' · 2 / 2'; $('al-h').textContent = t('alH2', alignCand.name);
+    $('al-p').innerHTML = t('alP2', esc(alignCand.name), alignCand.a.toFixed(1));
+    go.hidden = false; go.textContent = t('alGo2', alignCand.name);
+    const q = P(alignCand.vec);
+    if (q) { ctx.strokeStyle = '#f2c46d'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(q[0], q[1], 18, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  function finishChip(name) {
+    const tt = alignTotals(), start = alignStart;
+    endAlign();
+    const u = $('ar-undo'); u.querySelector('span').textContent = name ? t('alDone', name, sg(tt.dAz), sg(tt.dAlt)) : t('alDoneHand', sg(tt.dAz), sg(tt.dAlt)); u.hidden = false;
+    alignPrev = start;
+    u.querySelector('button').textContent = t('alBack');
+    u.querySelector('button').onclick = () => { const back = start ? mm(start, mt(alignR || I3)) : mt(alignR || I3); applyQ(back); alignR = start ? start.slice() : null; u.hidden = true; };
+    clearTimeout(undoT); undoT = setTimeout(() => { u.hidden = true; }, 6000);
   }
   function doAlign() {
     const c = alignCand; if (!c || !sensor) return;
     const cur = steady(); if (!cur) return;
-    const Q = rotAtoB(norm(cur.v), c.vec);
-    const now = altaz(cur.v), dAz = ((c.az - now.az + 540) % 360) - 180, dAlt = c.alt - now.alt;
-    alignPrev = alignR; alignR = alignR ? mm(Q, alignR) : Q;
-    if (target) target = { v: mv(Q, target.v), u: mv(Q, target.u), r: mv(Q, target.r) };
-    recent.length = 0;
-    endAlign();
-    const sg = (x) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(Math.abs(x) < 10 ? 1 : 0);
-    const u = $('ar-undo'); u.querySelector('span').textContent = t('alDone', c.name, sg(dAz), sg(dAlt)); u.hidden = false;
-    const prev = alignPrev;
-    u.querySelector('button').textContent = t('alBack');
-    u.querySelector('button').onclick = () => { const back = prev ? mm(prev, mt(alignR)) : mt(alignR); alignR = prev; if (target) target = { v: mv(back, target.v), u: mv(back, target.u), r: mv(back, target.r) }; recent.length = 0; u.hidden = true; };
-    clearTimeout(undoT); undoT = setTimeout(() => { u.hidden = true; }, 6000);
+    applyQ(rotAtoB(norm(cur.v), c.vec));
+    finishChip(c.name);
   }
-  $('ar-align').addEventListener('click', () => { aligning ? endAlign() : startAlign(); });
+  $('ar-align').addEventListener('click', () => { aligning ? cancelAlign() : startAlign(); });
   $('al-go').addEventListener('click', doAlign);
-  $('al-cancel').addEventListener('click', endAlign);
+  $('al-keep').addEventListener('click', () => { if (aligning) finishChip(null); });
+  $('al-cancel').addEventListener('click', cancelAlign);
 
   // ---------- display level (v28) ----------
   const VIEWS = ['all', 'aim', 'few', 'gaze'], VL = { all: 'viewAll', aim: 'viewAim', few: 'viewFew', gaze: 'viewGaze' }, VT = { all: 'viewToastAll', aim: 'viewToastAim', few: 'viewToastFew', gaze: 'viewToastGaze' };
