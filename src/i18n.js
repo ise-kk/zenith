@@ -28,6 +28,8 @@ export function t(key, ...a) {
 }
 
 // ---------- numbers & units ----------
+// v36: rough brightness words for satellites other than the space stations
+export const magWord = (m) => ({ ja: ['明るめ', 'ふつう', '暗め'], en: ['bright', 'moderate', 'faint'] }[LANG] || ['bright', 'moderate', 'faint'])[m <= 2 ? 0 : m <= 3.5 ? 1 : 2];
 export const magT = (m) => (m < 0 ? '−' + Math.abs(m).toFixed(1) : m.toFixed(1));
 export const magU = (m) => JA ? `${magT(m)}等` : `mag ${magT(m)}`;
 export function kmText(km) {
@@ -60,9 +62,9 @@ const D = {
   geoNo: { ja: 'この環境では現在地を取得できません', en: 'Location is not available here' },
   geoFail: { ja: '現在地を取得できませんでした（この画面では使えないか、許可されていません）', en: 'Could not get your location (not available here, or not allowed)' },
   skyDark: { ja: '空の暗さ', en: 'Sky' },
-  skyCity: { ja: '都市の空（4等星まで）', en: 'City (mag 4)' },
-  skySuburb: { ja: '郊外の空（5.5等星まで）', en: 'Suburban (mag 5.5)' },
-  skyDarkOpt: { ja: '暗い空（6.5等星まで）', en: 'Dark (mag 6.5)' },
+  skyCity: { ja: '都市の空（3.5等星まで）', en: 'City (mag 3.5)' },
+  skySuburb: { ja: '郊外の空（4.5等星まで）', en: 'Suburban (mag 4.5)' },
+  skyDarkOpt: { ja: '暗い空（6等星まで）', en: 'Dark (mag 6)' },
   skyCityS: { ja: '都市の空', en: 'a city sky' }, skySuburbS: { ja: '郊外の空', en: 'a suburban sky' }, skyDarkS: { ja: '暗い空', en: 'a dark sky' },
   live: { ja: 'ライブ', en: 'Live' }, paused: { ja: '停止中', en: 'Paused' }, speed: { ja: (r) => `${r}倍速`, en: (r) => `×${r}` },
   now: { ja: '現在', en: 'Now' }, stop: { ja: '停止', en: 'Pause' },
@@ -115,6 +117,7 @@ const D = {
   headStation: { ja: (h, n, d) => `${h}、${n}が<br>${d}の空から現れます。`, en: (h, n, d) => `At ${h}, the ${n} appears<br>in the ${d}.` },
   headNone: { ja: '今夜これからの宇宙ステーションの通過はありません。', en: 'No more space station passes tonight.' },
   headNext: { ja: (md, h, n, d, a, m) => `次は${md} ${h}、${n}が${d}の空に（最大${a}°・${m}等）。`, en: (md, h, n, d, a, m) => `Next: ${md} ${h}, the ${n} in the ${d} (up to ${a}°, mag ${m}).` },
+  passSubG: { ja: (a, b, alt, dur, w) => `${a} → ${b} · 最大高度 ${alt}° · 約${dur}分 · 明るさの目安 ${w}`, en: (a, b, alt, dur, w) => `${a} → ${b} · up to ${alt}° · ${dur} min · roughly ${w}` },
   passSub: { ja: (a, b, alt, dur, m) => `${a} → ${b} · 最大高度 ${alt}° · 約${dur}分 · 推定 ${m}等`, en: (a, b, alt, dur, m) => `${a} → ${b} · up to ${alt}° · ${dur} min · about mag ${m}` },
   faint: { ja: (n) => `ほかに、双眼鏡向けの暗い人工衛星の通過が${n}回あります（3等より暗いもの）。`, en: (n) => `There are also ${n} fainter satellite passes (dimmer than mag 3) for binoculars.` },
   // showers
@@ -260,6 +263,9 @@ const D = {
   orbitKind: { ja: '軌道の種類', en: 'Orbit' }, visHow: { ja: '見え方', en: 'Seeing it' },
   // field test 2026-09-30: one-point pointing fix, fewer stars, photo overlay
   viewFew: { ja: '少なめ', en: 'Fewer stars' }, viewToastFew: { ja: '星を少なめに（2等星まで＋惑星・月）', en: 'Fewer stars (1st and 2nd magnitude + planets, Moon)' },
+  dotsBtn: { ja: 'アプリの星を消す', en: 'Hide the app’s stars' },
+  dotsOffHint: { ja: 'アプリの星の点を消しました。名前と線の位置に、カメラの本物の星が見えます', en: 'The app’s star dots are hidden. The real stars in the camera sit where the names and lines are' },
+  dotsOnHint: { ja: 'アプリの星を表示しています', en: 'Showing the app’s stars' },
   alBtn: { ja: '向きを合わせる', en: 'Line up' },
   alH1: { ja: '指で空をずらして、本物に重ねる', en: 'Drag the sky onto the real one' },
   alP1: { ja: 'アプリの月（または明るい星）が、本物の月や星に重なるまで画面をなぞってください。上下・左右とも動かせます。', en: 'Drag the screen until the app’s Moon (or a bright star) sits on the real one. Up-down and sideways both work.' },
@@ -287,6 +293,14 @@ const D = {
   phWhich: { ja: 'タップした星はどれですか', en: 'Which star did you tap?' },
   phWhichP: { ja: '撮影したときに空の上にあった明るい天体です。', en: 'Bright objects that were above the horizon when it was taken.' },
   phRedo: { ja: 'やり直す', en: 'Start over' },
+  listSep: { ja: '・', en: ', ' },
+  phAutoH: { ja: (n) => `${n}で合わせました`, en: (n) => `Lined up with ${n}` },
+  phAutoP: { ja: 'アプリの線と名前が、写真の星に重なっていますか？ ちがうときは、もう1つ星を選んで合わせ直します。', en: 'Do the lines and names sit on the stars in the photo? If not, you can pick one more star.' },
+  phAutoYes: { ja: 'はい', en: 'Yes' }, phAutoNo: { ja: 'ちがう', en: 'No' },
+  phFittedAuto: { ja: (n) => `${n}で合わせました`, en: (n) => `Lined up with ${n}` },
+  phShare: { ja: '保存・共有', en: 'Save / share' },
+  phShareMark: { ja: (d) => `Zenith · ${d}`, en: (d) => `Zenith · ${d}` },
+  phShareFail: { ja: '画像を作れませんでした', en: 'Could not make the image' },
   phFitted: { ja: (a, b) => `${a}と${b}で合わせました`, en: (a, b) => `Fitted with ${a} and ${b}` },
   phFail: { ja: 'うまく合いませんでした。別の明るい星で試してください。', en: 'That did not fit. Try another bright star.' },
   phTapHint: { ja: '星をタップすると詳しく', en: 'Tap a star for details' },
@@ -332,6 +346,7 @@ const D = {
   fovV: { ja: (v) => `縦の視野 ${v}°`, en: (v) => `${v}° tall` },
   arWhere: { ja: (d, az, alt) => `${d} ${az}° · 高度 ${alt}°`, en: (d, az, alt) => `${d} ${az}° · ${alt}° up` },
   arMore: { ja: '詳しく ›', en: 'Details ›' },
+  arSatSeenG: { ja: (w) => `見えています（目安：${w}）`, en: (w) => `visible (roughly ${w})` },
   arSatSeen: { ja: (m) => `${m}等で見えています`, en: (m) => `visible, mag ${m}` },
   arSatShadow: { ja: '地球の影の中', en: 'in Earth’s shadow' }, arSatBright: { ja: '空が明るく見えません', en: 'sky too bright' },
   arSatLine: { ja: (k, h, s) => `${k} · 高度${h}km · ${s}`, en: (k, h, s) => `${k} · ${h} km up · ${s}` },
@@ -340,6 +355,7 @@ const D = {
   arSunLabel: { ja: '太陽（直接見ないでください）', en: 'Sun (never look at it directly)' },
   arRadiant: { ja: (n) => `${n}の放射点`, en: (n) => `${n} radiant` },
   arInShadowL: { ja: '（地球の影の中）', en: ' (in Earth’s shadow)' },
+  arGuideNowG: { ja: (n, w) => `${n} 通過中 · 目安 ${w}`, en: (n, w) => `${n} passing now · roughly ${w}` },
   arGuideNow: { ja: (n, m) => `${n} 通過中 · ${m}等`, en: (n, m) => `${n} passing now · mag ${m}` },
   arGuideSoon: { ja: (n, mm, ss, d) => `${n} あと${mm ? mm + '分' : ''}${ss}秒 · ${d}から`, en: (n, mm, ss, d) => `${n} in ${mm ? mm + ' min ' : ''}${ss} s · from the ${d}` },
   arGuideTo: { ja: (n) => `${n}の方向を案内します`, en: (n) => `Guiding you to ${n}` },
@@ -382,6 +398,7 @@ const D = {
   satBelow: { ja: '地平線の下', en: 'below the horizon' },
   satShadow: { ja: '地球の影の中（いまは見えません）', en: 'in Earth’s shadow (not visible now)' },
   satBright: { ja: '空が明るく、いまは見えません', en: 'the sky is too bright to see it now' },
+  satSeenG: { ja: (w) => `見えています（明るさの目安：<b>${w}</b>）`, en: (w) => `visible (roughly <b>${w}</b>)` },
   satSeen: { ja: (m) => `<b>${m}等</b>で見えています`, en: (m) => `visible at <b>mag ${m}</b>` },
   satNowUp: { ja: (d, a, s) => `いま <b>${d}の空、高度${a}°</b> · ${s}`, en: (d, a, s) => `Now <b>in the ${d}, ${a}° up</b> · ${s}` },
   satNowNot: { ja: (s) => `いまは${s}です`, en: (s) => `Now ${s}` },
@@ -393,6 +410,7 @@ const D = {
   incl: { ja: '軌道の傾き', en: 'Inclination' }, launched: { ja: '打ち上げ', en: 'Launched' }, yearV: { ja: (y) => `${y}年`, en: (y) => `${y}` },
   passNow: { ja: 'いまの通過', en: 'This pass' }, passNowV: { ja: (h, d) => `${h}まで · ${d}へ`, en: (h, d) => `until ${h} · toward ${d}` },
   passNext: { ja: '次に見える通過', en: 'Next visible pass' },
+  passNextVG: { ja: (w, d, a, g) => `${w} ${d}から · 最大${a}° · 明るさの目安 ${g}`, en: (w, d, a, g) => `${w} from ${d} · up to ${a}° · roughly ${g}` },
   passNextV: { ja: (w, d, a, m) => `${w} ${d}から · 最大${a}° · ${m}等`, en: (w, d, a, m) => `${w} from ${d} · up to ${a}° · mag ${m}` },
   noPass: { ja: '予報の範囲にはありません', en: 'none in the forecast window' },
   orbitAge: { ja: '軌道データ', en: 'Orbit data' }, hoursAgo: { ja: (h) => `${h}時間前のもの`, en: (h) => `${h} h old` }, daysAgo: { ja: (d) => `${d}日前のもの`, en: (d) => `${d} days old` },

@@ -7,7 +7,7 @@ import { createShare } from './share.js';
 import { createTopics } from './topics.js';
 import { describeSat, BRIGHT_MAG } from './satinfo.js';
 import { almanac, nextEclipses, moonAt } from './almanac.js';
-import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT } from './i18n.js';
+import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT, magWord } from './i18n.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
 const { A } = S;
@@ -33,7 +33,20 @@ function placeName(p) {
   if (k) return JA ? k.ja : k.en;
   return p.ja;
 }
-const SKIES = { city: { key: 'skyCityS', lm: 4.0 }, suburb: { key: 'skySuburbS', lm: 5.5 }, dark: { key: 'skyDarkS', lm: 6.5 } };
+// v36: limits for an ordinary observer (the Bortle scale's city 4.1-4.5 / suburban 5.1-5.5 / rural 6.6-7.0 are for
+// experienced, dark-adapted observers looking straight up), and how much a bright Moon high in the sky takes away
+const SKIES = { city: { key: 'skyCityS', lm: 3.5, moon: 0.5 }, suburb: { key: 'skySuburbS', lm: 4.5, moon: 1.0 }, dark: { key: 'skyDarkS', lm: 6.0, moon: 1.5 } };
+// moonlight: full effect with a full Moon 20° or more above the horizon (cached per minute)
+let moonPenCache = { k: '', v: 0 };
+function moonPenalty(d) {
+  const k = Math.floor(d.getTime() / 60e3) + ',' + st.place.lat + ',' + st.place.lon + ',' + st.sky;
+  if (moonPenCache.k !== k) {
+    const alt = S.bodyAltAz(A.Body.Moon, d, st.place).alt;
+    const ill = A.Illumination(A.Body.Moon, A.MakeTime(d)).phase_fraction;
+    moonPenCache = { k, v: SKIES[st.sky].moon * ill * Math.max(0, Math.min(1, (alt + 2) / 22)) };
+  }
+  return moonPenCache.v;
+}
 const fShort = (f) => (JA ? f.short : f.shortEn || f.short);
 const fName = (f) => (JA ? f.ja : f.en);
 const store = {
@@ -102,8 +115,8 @@ function bvColor(bv) {
 const STAR_RGB = DATA.stars.map(s => bvColor(s[3]));
 
 // sky brightness from sun altitude -> background + limiting magnitude
-function skyState(sunAlt) {
-  const lm0 = SKIES[st.sky].lm;
+function skyState(sunAlt, d) {
+  const lm0 = SKIES[st.sky].lm - (d ? moonPenalty(d) : 0);
   let lm = lm0, top, bottom, label;
   if (sunAlt > 0) { lm = -1; top = [34, 62, 104]; bottom = [92, 128, 170]; label = t('day'); }
   else if (sunAlt > -6) { const k = -sunAlt / 6; lm = Math.min(lm0, 0 + k * 2); top = mix([30, 52, 92], [14, 24, 52], k); bottom = mix([160, 110, 90], [60, 58, 90], k); label = t('civil'); }
@@ -137,7 +150,7 @@ function draw() {
   const obs = st.place;
   const map = S.horizonMapper(d, obs);
   const sun = S.bodyAltAz(A.Body.Sun, d, obs);
-  const sky = skyState(sun.alt);
+  const sky = skyState(sun.alt, d);
   lastFrame = { sunAlt: sun.alt, map, sky, date: d };
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, W, H);
@@ -152,7 +165,7 @@ function draw() {
   const nightK = Math.max(0, Math.min(1, (sky.lm - 1) / 4));
   // Milky Way
   if (nightK > 0.1) {
-    const mwA = [0.025, 0.03, 0.035, 0.04, 0.045].map(a => a * nightK * (SKIES[st.sky].lm - 3.5) / 3);
+    const mwA = [0.025, 0.03, 0.035, 0.04, 0.045].map(a => a * nightK * Math.max(0, Math.min(1, (sky.lm - 4) / 2)));
     DATA.mw.forEach((polys, li) => {
       ctx.fillStyle = `rgba(190,200,230,${Math.max(0, mwA[li])})`;
       ctx.beginPath();
@@ -647,7 +660,7 @@ function renderTonight() {
     if (p.kind === 'train') return `<li class="ev k-pass k-train${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(t('train'))}</span><span class="ss">${t('trainPassSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur)}</span></button></li>`;
     const f = S.FEATURED[p.sat.id];
     const nice = f ? null : describeSat(p.sat).ja;
-    return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? fName(f) : (nice || titleCase(p.sat.name)))}${nice ? `<small>${esc(titleCase(p.sat.name))}</small>` : ''}</span><span class="ss">${t('passSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, mag(p.mag))}</span></button></li>`;
+    return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? fName(f) : (nice || titleCase(p.sat.name)))}${nice ? `<small>${esc(titleCase(p.sat.name))}</small>` : ''}</span><span class="ss">${f ? t('passSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, mag(p.mag)) : t('passSubG', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, magWord(p.mag))}</span></button></li>`;
   };
   // v35: one list with three views — 見どころ (Moon, planets, space stations, Starlink trains, that night's events),
   // 空の明るさ (sunset, darkness, dawn, sunrise) and すべて (everything, every satellite that can be seen)

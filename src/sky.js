@@ -105,6 +105,16 @@ function epochDate(l1) {
 
 // intrinsic (standard) magnitude at 1000 km, 90° phase; rough published values
 const STD_MAG = { 25544: -1.8, 48274: -1.1 };
+// v36: other satellites have no per-object brightness here (the observation-based list has no stated terms of use),
+// so a rough value by kind is used: rocket bodies are large, debris small. Shown only as a rough guide
+// (明るめ／ふつう／暗め), never as a magnitude. The loaded list is CelesTrak's brighter objects.
+export function stdMag(sat) {
+  if (STD_MAG[sat.id] != null) return STD_MAG[sat.id];
+  const n = sat.name || '';
+  if (/\bR\/B\b|ROCKET/.test(n)) return 3.0;
+  if (/\bDEB\b/.test(n)) return 5.0;
+  return 3.5;
+}
 export const FEATURED = { 25544: { ja: '国際宇宙ステーション', en: 'International Space Station', short: 'ISS', shortEn: 'ISS' }, 48274: { ja: '中国宇宙ステーション「天宮」', en: 'Tiangong space station', short: '天宮', shortEn: 'Tiangong' } };
 
 const RE = 6378.137;
@@ -134,8 +144,11 @@ export function satLook(sat, date, obs, sunEci) {
   const cosPh = (toObs[0] * toSun[0] + toObs[1] * toSun[1] + toObs[2] * toSun[2]) / (lo * ls);
   const ph = Math.acos(Math.max(-1, Math.min(1, cosPh)));
   const F = (Math.sin(ph) + (Math.PI - ph) * Math.cos(ph)) / Math.PI;
-  const std = STD_MAG[sat.id] ?? 1.0;
-  const mag = std + 5 * Math.log10(la.rangeSat / 1000) - 2.5 * Math.log10(Math.max(F, 1e-4));
+  const std = stdMag(sat);
+  // + atmospheric extinction near the horizon (0.25 mag per airmass, as for the stars)
+  const el = la.elevation * R2D;
+  const air = el > 0 ? 1 / Math.max(Math.sin((el + 244 / (165 + 47 * Math.pow(el, 1.1))) * D2R), 0.02) : 40;
+  const mag = std + 5 * Math.log10(la.rangeSat / 1000) - 2.5 * Math.log10(Math.max(F, 1e-4)) + 0.25 * (air - 1);
   return { alt: la.elevation * R2D, az: (la.azimuth * R2D + 360) % 360, range: la.rangeSat, sunlit, mag, height: Math.hypot(...p) - RE };
 }
 

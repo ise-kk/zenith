@@ -2,7 +2,7 @@
 // Used by the star map and by the pointing (AR) view. `root` holds elements with the classes
 // .oc-kind .oc-name .oc-sub .oc-now .oc-lead .oc-facts .oc-actions .oc-foot
 import { orbitOf, describeSat, visNote, orbitKind, isModule } from './satinfo.js';
-import { t, JA, TZ, LOCALE, kmText, lightTime, magT, magU } from './i18n.js';
+import { t, JA, TZ, LOCALE, kmText, lightTime, magT, magU, magWord } from './i18n.js';
 import { mtype, conName, starName, starAlt, messierName, planetName, showerName } from './names.js';
 export { mtype };
 
@@ -192,7 +192,7 @@ export function createObjInfo(deps) {
       if (!up) state = t('satBelow');
       else if (!lk.sunlit) state = t('satShadow');
       else if (sunAlt > -6) state = t('satBright');
-      else state = t('satSeen', magT(lk.mag));
+      else state = feat ? t('satSeen', magT(lk.mag)) : t('satSeenG', magWord(lk.mag));
       const now = d.getTime();
       const cur = st.passes.find(q => q.sat.id === sat.id && q.start.t <= now && q.end.t >= now);
       const nx = st.passes.find(q => q.sat.id === sat.id && q.start.t > now);
@@ -215,7 +215,7 @@ export function createObjInfo(deps) {
         row(t('orbitKind'), esc(orbitKind(orb))),
         orb.launchYear ? row(t('launched'), t('yearV', orb.launchYear)) : '',
         cur ? row(t('passNow'), t('passNowV', hm(new Date(cur.end.t)), dir(cur.end.az))) : '',
-        row(t('passNext'), nx ? t('passNextV', `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))}`, dir(nx.start.az), Math.round(nx.max.alt), magT(nx.mag)) : t('noPass')),
+        row(t('passNext'), nx ? (feat ? t('passNextV', `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))}`, dir(nx.start.az), Math.round(nx.max.alt), magT(nx.mag)) : t('passNextVG', `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))}`, dir(nx.start.az), Math.round(nx.max.alt), magWord(nx.mag))) : t('noPass')),
         row(t('orbitAge'), age < 1 ? t('hoursAgo', Math.max(1, Math.round(age * 24))) : t('daysAgo', age.toFixed(1))),
       ];
       if (nx || cur) out.actions.push({ label: t('showPath'), pass: cur || nx });

@@ -84,13 +84,83 @@ export function project(fit, d) {
   return [fit.f * a[0] / a[2], fit.f * a[1] / a[2]];
 }
 
+// ---------- v36: one-tap fit ----------
+// Bright points in the photo: local maxima well above the local background (on a half-size copy).
+export function findSpots(data, w, h, max = 90) {
+  const s = 2, W = Math.floor(w / s), H = Math.floor(h / s);
+  const L = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let v = 0; for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) { const i = ((y * s + dy) * w + x * s + dx) * 4; v += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]; }
+    L[y * W + x] = v / (s * s);
+  }
+  // local background: mean over a 31x31 box (integral image)
+  const I = new Float64Array((W + 1) * (H + 1));
+  for (let y = 0; y < H; y++) { let row = 0; for (let x = 0; x < W; x++) { row += L[y * W + x]; I[(y + 1) * (W + 1) + x + 1] = I[y * (W + 1) + x + 1] + row; } }
+  const R = 15, box = (x, y) => { const x0 = Math.max(0, x - R), y0 = Math.max(0, y - R), x1 = Math.min(W, x + R + 1), y1 = Math.min(H, y + R + 1); return (I[y1 * (W + 1) + x1] - I[y0 * (W + 1) + x1] - I[y1 * (W + 1) + x0] + I[y0 * (W + 1) + x0]) / ((x1 - x0) * (y1 - y0)); };
+  const out = [];
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    const v = L[y * W + x]; const bg = box(x, y); const c = v - bg;
+    if (c < 18) continue;
+    let peak = true;
+    for (let dy = -2; dy <= 2 && peak; dy++) for (let dx = -2; dx <= 2; dx++) { if ((dx || dy) && L[(y + dy) * W + x + dx] > v) { peak = false; break; } }
+    if (!peak) continue;
+    let sx = 0, sy = 0, sw = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const q = Math.max(0, L[(y + dy) * W + x + dx] - bg); sx += q * (x + dx); sy += q * (y + dy); sw += q; }
+    out.push({ x: (sx / sw + 0.5) * s, y: (sy / sw + 0.5) * s, c });
+  }
+  out.sort((a, b) => b.c - a.c);
+  // drop duplicates of the same blob
+  const keep = [];
+  for (const p of out) { if (keep.some(k => Math.hypot(k.x - p.x, k.y - p.y) < 6 * s)) continue; keep.push(p); if (keep.length >= max) break; }
+  return keep;
+}
+// Pointing from one known point: the camera ray of the anchor must equal its true direction; the remaining
+// roll about that ray (and a little focal-length play) is searched so that catalogue stars land on bright points.
+// anchor: photo px relative to centre; w0: its true direction; cat: [{w, name, mag}]; spots: px relative to centre.
+export function fitOne(anchor, w0, cat, spots, f0, iw, ih) {
+  const diag = Math.hypot(iw, ih), tol = 0.011 * diag;
+  const perp = (v) => { const r = Math.abs(v[2]) < 0.95 ? [0, 0, 1] : [1, 0, 0]; return norm(cross(v, r)); };
+  const e1 = norm(w0), p = perp(e1), q = cross(e1, p);
+  let best = null;
+  for (let fk = 0.88; fk <= 1.121; fk += 0.02) {
+    const f = f0 * fk;
+    const c1 = norm([anchor[0], anchor[1], f]), c2 = perp(c1), c3 = cross(c1, c2), Acam = [c1, c2, c3];
+    for (let deg = 0; deg < 360; deg += 0.75) {
+      const th = deg * D2R, ct = Math.cos(th), st = Math.sin(th);
+      const e2 = [ct * p[0] + st * q[0], ct * p[1] + st * q[1], ct * p[2] + st * q[2]], e3 = cross(e1, e2), Wd = [e1, e2, e3];
+      const M = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M.push(Wd[0][i] * Acam[0][j] + Wd[1][i] * Acam[1][j] + Wd[2][i] * Acam[2][j]);
+      const fit = { f, M };
+      let n = 0, sum = 0; const hit = [];
+      for (const c of cat) {
+        const pp = project(fit, c.w); if (!pp || Math.abs(pp[0]) > iw / 2 || Math.abs(pp[1]) > ih / 2) continue;
+        let bd = tol, bs = null; for (const sp of spots) { const dd = Math.hypot(sp.x - pp[0], sp.y - pp[1]); if (dd < bd) { bd = dd; bs = sp; } }
+        if (bs) { n++; sum += bd; hit.push({ c, sp: bs, d: bd }); }
+      }
+      if (n && (!best || n > best.n || (n === best.n && sum < best.sum))) best = { n, sum, fit, hit };
+    }
+  }
+  if (!best || best.n < 3) return null;
+  // finish exactly with the two-point solver on the anchor and the farthest matched star, then re-check
+  const far = best.hit.reduce((a, b) => (Math.hypot(b.sp.x - anchor[0], b.sp.y - anchor[1]) > Math.hypot(a.sp.x - anchor[0], a.sp.y - anchor[1]) ? b : a));
+  const fin = fitTwo(anchor, [far.sp.x, far.sp.y], w0, far.c.w, diag, best.fit.f) || best.fit;
+  const hit = [];
+  for (const c of cat) {
+    const pp = project(fin, c.w); if (!pp || Math.abs(pp[0]) > iw / 2 || Math.abs(pp[1]) > ih / 2) continue;
+    let bd = tol * 0.6, bs = null; for (const sp of spots) { const dd = Math.hypot(sp.x - pp[0], sp.y - pp[1]); if (dd < bd) { bd = dd; bs = sp; } }
+    if (bs) hit.push({ c, d: bd });
+  }
+  if (hit.length < 3) return null;
+  hit.sort((a, b) => a.c.mag - b.c.mag);
+  return { fit: fin, names: hit.map(h => h.c.name), n: hit.length };
+}
+
 export function createPhoto(deps) {
   const { $, st, DATA, S, A, t, esc, hm, md, dir, starLabel, planetName, conName, openObj, closeObj, root, onOpen, onClose } = deps;
   const view = $('ar-ph'), cv = $('ph-cv'), ctx = cv.getContext('2d'), file = $('ph-file');
   const MAXPX = 2048; // the photo is scaled down once on load (memory on phones)
   let img = null, iw = 0, ih = 0, when = null, exif = {}, timeOk = false;
   let W = 0, H = 0, DPR = 1, sc = 1, ox = 0, oy = 0, fitScale = 1; // screen = o + sc * photo
-  let step = 'p1', pts = [], fit = null, cands = [], candI = 0, wantList = false;
+  let step = 'p1', pts = [], fit = null, cands = [], candI = 0, wantList = false, spots = null, autoNames = null;
 
   // ---------- sky at the photo's time ----------
   const obs = () => st.place;
@@ -128,7 +198,7 @@ export function createPhoto(deps) {
     im.onload = () => {
       const k = Math.min(1, MAXPX / Math.max(im.naturalWidth, im.naturalHeight));
       iw = Math.round(im.naturalWidth * k); ih = Math.round(im.naturalHeight * k);
-      img = document.createElement('canvas'); img.width = iw; img.height = ih; img.getContext('2d').drawImage(im, 0, 0, iw, ih);
+      img = document.createElement('canvas'); img.width = iw; img.height = ih; img.getContext('2d').drawImage(im, 0, 0, iw, ih); spots = null;
       URL.revokeObjectURL(url);
       show();
     };
@@ -140,7 +210,7 @@ export function createPhoto(deps) {
     resize(); reset(); renderTime();
   }
   function hide() { view.hidden = true; root.classList.remove('photo'); img = null; fit = null; pts = []; onClose && onClose(); }
-  function reset() { pts = []; fit = null; cands = []; candI = 0; wantList = false; step = 'p1'; $('ph-done').hidden = true; panel(); draw(); }
+  function reset() { autoNames = null; pts = []; fit = null; cands = []; candI = 0; wantList = false; step = 'p1'; $('ph-done').hidden = true; panel(); draw(); }
   function resize() {
     DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
     cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -181,6 +251,10 @@ export function createPhoto(deps) {
     } else if (step === 'p2') {
       k.textContent = '2 / 2'; h.textContent = t('phH2'); p.textContent = t('phP2', nameOf(pts[0].o));
       b1.textContent = t('phRedo'); b1.onclick = reset; b2.hidden = true;
+    } else if (step === 'confirm') { // v36: one-tap result
+      k.textContent = ''; h.textContent = t('phAutoH', autoNames.join(t('listSep'))); p.textContent = t('phAutoP');
+      b1.textContent = t('phAutoNo'); b1.onclick = () => { fit = null; autoNames = null; pts = [pts[0]]; step = 'p2'; panel(); draw(); };
+      b2.textContent = t('phAutoYes'); b2.onclick = () => { step = 'done'; panel(); const dn = $('ph-done'); dn.hidden = false; dn.querySelector('span').textContent = t('phFittedAuto', autoNames.join(t('listSep'))); draw(); note(t('phTapHint'), 3500); };
     } else if (step === 'which') { // name the tapped point
       const last = pts[pts.length - 1];
       if (!wantList && cands.length && candI < cands.length) {
@@ -208,13 +282,50 @@ export function createPhoto(deps) {
   $('ph-listbtn').addEventListener('click', () => { wantList = true; panel(); });
   function choose(o) {
     pts[pts.length - 1].o = o; wantList = false; cands = []; candI = 0;
-    if (pts.length === 1) { step = 'p2'; panel(); draw(); } else solve();
+    if (pts.length === 1) { if (!tryAuto()) { step = 'p2'; panel(); draw(); } } else solve();
+  }
+  // v36: one tap is enough when the photo's focal length is known and at least 3 more stars line up;
+  // otherwise the usual second tap is asked for (nothing is forced onto the photo)
+  function lum(d, i) { return 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; }
+  function tryAuto() {
+    if (!(exif.f35 > 5 && exif.f35 < 400) || !pts[0] || !pts[0].o) return false;
+    const D = diag(), data = img.getContext('2d').getImageData(0, 0, iw, ih).data;
+    if (!spots) spots = findSpots(data, iw, ih, 50);
+    let a = pts[0].img.slice();
+    const isMoon = pts[0].o.kind === 'moon';
+    if (isMoon) { // the Moon's centre: centroid of the brightest pixels near the tap
+      const r = Math.round(0.035 * D); let mx = 0;
+      for (let y = Math.max(0, a[1] - r | 0); y < Math.min(ih, a[1] + r); y++) for (let x = Math.max(0, a[0] - r | 0); x < Math.min(iw, a[0] + r); x++) mx = Math.max(mx, lum(data, (y * iw + x) * 4));
+      let sx = 0, sy = 0, n = 0;
+      for (let y = Math.max(0, a[1] - r | 0); y < Math.min(ih, a[1] + r); y++) for (let x = Math.max(0, a[0] - r | 0); x < Math.min(iw, a[0] + r); x++) if (lum(data, (y * iw + x) * 4) > 0.85 * mx) { sx += x; sy += y; n++; }
+      if (n) a = [sx / n, sy / n];
+    } else { // snap to the bright point under the finger
+      let bd = 0.02 * D, bs = null; for (const sp of spots) { const dd = Math.hypot(sp.x - a[0], sp.y - a[1]); if (dd < bd) { bd = dd; bs = sp; } }
+      if (bs) a = [bs.x, bs.y];
+    }
+    const away = isMoon ? 0.06 * D : 0.015 * D;
+    const sp = spots.filter(p => Math.hypot(p.x - a[0], p.y - a[1]) > away).map(p => ({ x: p.x - iw / 2, y: p.y - ih / 2 }));
+    const map = S.horizonMapper(when, obs()), cat = [];
+    for (let i = 0; i < DATA.stars.length; i++) {
+      const s0 = DATA.stars[i]; if (s0[2] > 2.8) break;
+      if (pts[0].o.kind === 'star' && pts[0].o.i === i) continue;
+      const h = map(s0[0], s0[1]); if (h.alt < 5) continue;
+      cat.push({ w: enu(h.alt, h.az), name: starLabel(i) || null, mag: s0[2] });
+    }
+    for (const pl of S.PLANETS) { const mg = A.Illumination(pl.body, when).mag; if (mg > 2.5) continue; const h = S.bodyAltAz(pl.body, when, obs()); if (h.alt > 5 && !(pts[0].o.kind === 'planet' && pts[0].o.body === pl.body)) cat.push({ w: enu(h.alt, h.az), name: planetName(pl), mag: mg }); }
+    const r = fitOne(rel(a), dirOf(pts[0].o, when), cat, sp, exif.f35 * D / 43.27, iw, ih);
+    if (!r) return false;
+    pts[0].img = a; fit = r.fit;
+    autoNames = [nameOf(pts[0].o), ...r.names.filter(Boolean)].slice(0, 3);
+    step = 'confirm'; panel(); draw();
+    return true;
   }
   const rel = (q) => [q[0] - iw / 2, q[1] - ih / 2];
   const diag = () => Math.hypot(iw, ih);
   function tapPhoto(q) {
     if (step === 'done') return tapObject(q);
-    if (step === 'p1') { pts = [{ img: q, o: moonObj() }]; step = 'p2'; panel(); draw(); return; }
+    if (step === 'confirm') return;
+    if (step === 'p1') { pts = [{ img: q, o: moonObj() }]; if (!tryAuto()) { step = 'p2'; panel(); draw(); } return; }
     if (step === 'p1s') { pts = [{ img: q, o: null }]; step = 'which'; cands = []; wantList = true; panel(); draw(); return; }
     if (step === 'p2' || (step === 'which' && pts.length === 2)) {
       pts = [pts[0], { img: q, o: null }];
@@ -243,6 +354,29 @@ export function createPhoto(deps) {
     note(t('phTapHint'), 3500);
   }
   $('ph-redo').addEventListener('click', reset);
+  // v36: the photo with the lines and names as one image, made on the device (no location, no EXIF: drawn from a canvas)
+  async function shareImage() {
+    if (!img || !fit) return;
+    const out = document.createElement('canvas'); out.width = iw; out.height = ih;
+    const g = out.getContext('2d'); g.drawImage(img, 0, 0);
+    const k = 1 / fitScale; // the same look as on screen at the fitted view
+    const P = (d) => { const p = project(fit, d); return p && [p[0] + iw / 2, p[1] + ih / 2]; };
+    overlay(g, P, (s) => s && s[0] >= 0 && s[0] <= iw && s[1] >= 0 && s[1] <= ih, k, null);
+    const ds = `${when.getFullYear()}/${when.getMonth() + 1}/${when.getDate()} ${hm(when)}`;
+    g.font = `${11 * k}px "Zen Kaku Gothic New", sans-serif`; g.textAlign = 'right';
+    const txt = t('phShareMark', ds), pad = 12 * k;
+    g.fillStyle = 'rgba(0,0,0,.45)'; const tw = g.measureText(txt).width; g.fillRect(iw - tw - pad * 1.8, ih - 26 * k - pad * 0.4, tw + pad * 1.8, 26 * k + pad * 0.4);
+    g.fillStyle = 'rgba(236,232,222,.85)'; g.fillText(txt, iw - pad, ih - pad);
+    const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', 0.92));
+    if (!blob) { note(t('phShareFail')); return; }
+    const fileOut = new File([blob], 'zenith-photo.jpg', { type: 'image/jpeg' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [fileOut] })) { await navigator.share({ files: [fileOut] }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'zenith-photo.jpg'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  $('ph-share').addEventListener('click', shareImage);
   $('ph-back').addEventListener('click', hide);
 
   // ---------- drawing ----------
@@ -258,41 +392,42 @@ export function createPhoto(deps) {
     ctx.drawImage(img, ox, oy, iw * sc, ih * sc);
     hits = [];
     // the taps so far (while fitting only; afterwards the names speak for themselves)
-    if (step !== 'done') for (const p of pts) {
+    if (step !== 'done' && step !== 'confirm') for (const p of pts) {
       const s = toScreen(p.img);
       ctx.strokeStyle = '#f2c46d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s[0], s[1], 20, 0, Math.PI * 2); ctx.stroke();
       if (p.o) { ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = '#f2c46d'; ctx.textAlign = 'center'; ctx.fillText(nameOf(p.o) + (step === 'done' ? '' : ' ✓'), s[0], s[1] - 28); ctx.textAlign = 'left'; }
     }
-    if (!fit || step !== 'done') return;
-    const d = when, map = S.horizonMapper(d, obs());
+    if (!fit || (step !== 'done' && step !== 'confirm')) return;
     const inPhoto = (s) => s && s[0] > ox - 2 && s[0] < ox + iw * sc + 2 && s[1] > oy - 2 && s[1] < oy + ih * sc + 2;
-    // constellation lines, faint
-    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(200,215,240,.38)'; ctx.beginPath();
-    for (const c of DATA.cons) for (const seg of c.lines) { let prev = null; for (const [ra, dec] of seg) { const h = map(ra, dec); const s = h.alt > -2 ? projS(enu(h.alt, h.az)) : null; if (s && prev && inPhoto(s) && inPhoto(prev)) { ctx.moveTo(prev[0], prev[1]); ctx.lineTo(s[0], s[1]); } prev = s; } }
-    ctx.stroke();
-    // constellation names
-    ctx.font = '13px "Shippori Mincho", serif'; ctx.fillStyle = 'rgba(246,222,170,.55)'; ctx.textAlign = 'center';
-    for (const c of DATA.cons) { const h = map(c.lab[0], c.lab[1]); if (h.alt < 0) continue; const s = projS(enu(h.alt, h.az)); if (s && inPhoto(s)) ctx.fillText(conName(c), s[0], s[1]); }
-    ctx.textAlign = 'left';
-    // star names (brighter ones) and tap targets (named stars down to 4th magnitude)
-    ctx.font = '11.5px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = 'rgba(232,230,222,.72)';
+    overlay(ctx, projS, inPhoto, 1, hits);
+  }
+  // constellation lines, names, bright star and planet names — on screen (k=1) or onto the saved image (k = scale)
+  function overlay(g, P, inside, k, hitsOut) {
+    const d = when, map = S.horizonMapper(d, obs());
+    g.lineWidth = 1 * k; g.strokeStyle = 'rgba(200,215,240,.38)'; g.beginPath();
+    for (const c of DATA.cons) for (const seg of c.lines) { let prev = null; for (const [ra, dec] of seg) { const h = map(ra, dec); const s = h.alt > -2 ? P(enu(h.alt, h.az)) : null; if (s && prev && inside(s) && inside(prev)) { g.moveTo(prev[0], prev[1]); g.lineTo(s[0], s[1]); } prev = s; } }
+    g.stroke();
+    g.font = `${13 * k}px "Shippori Mincho", serif`; g.fillStyle = 'rgba(246,222,170,.55)'; g.textAlign = 'center';
+    for (const c of DATA.cons) { const h = map(c.lab[0], c.lab[1]); if (h.alt < 0) continue; const s = P(enu(h.alt, h.az)); if (s && inside(s)) g.fillText(conName(c), s[0], s[1]); }
+    g.textAlign = 'left';
+    g.font = `${11.5 * k}px "Zen Kaku Gothic New", sans-serif`; g.fillStyle = 'rgba(232,230,222,.72)';
     for (let i = 0; i < DATA.stars.length; i++) {
       const s0 = DATA.stars[i]; if (s0[2] > 4) break;
       if (!DATA.info[i]) continue;
       const h = map(s0[0], s0[1]); if (h.alt < 0) continue;
-      const s = projS(enu(h.alt, h.az)); if (!s || !inPhoto(s)) continue;
-      hits.push({ x: s[0], y: s[1], o: { kind: 'star', i } });
-      if (s0[2] <= 2.2) { const lb = starLabel(i); if (lb) ctx.fillText(lb, s[0] + 7, s[1] - 6); }
+      const s = P(enu(h.alt, h.az)); if (!s || !inside(s)) continue;
+      if (hitsOut) hitsOut.push({ x: s[0], y: s[1], o: { kind: 'star', i } });
+      if (s0[2] <= 2.2) { const lb = starLabel(i); if (lb) g.fillText(lb, s[0] + 7 * k, s[1] - 6 * k); }
     }
-    ctx.fillStyle = 'rgba(255,226,170,.8)';
+    g.fillStyle = 'rgba(255,226,170,.8)';
     for (const pl of S.PLANETS) {
       const h = S.bodyAltAz(pl.body, d, obs()); if (h.alt < 0) continue;
-      const s = projS(enu(h.alt, h.az)); if (!s || !inPhoto(s)) continue;
-      hits.push({ x: s[0], y: s[1], o: { kind: 'planet', body: pl.body, ja: pl.ja, en: pl.en } });
-      ctx.fillText(planetName(pl), s[0] + 8, s[1] - 7);
+      const s = P(enu(h.alt, h.az)); if (!s || !inside(s)) continue;
+      if (hitsOut) hitsOut.push({ x: s[0], y: s[1], o: { kind: 'planet', body: pl.body, ja: pl.ja, en: pl.en } });
+      g.fillText(planetName(pl), s[0] + 8 * k, s[1] - 7 * k);
     }
     const mh = S.bodyAltAz(A.Body.Moon, d, obs());
-    if (mh.alt > -1) { const s = projS(enu(mh.alt, mh.az)); if (s && inPhoto(s)) hits.push({ x: s[0], y: s[1], o: { kind: 'moon', body: A.Body.Moon, ja: '月' } }); }
+    if (hitsOut && mh.alt > -1) { const s = P(enu(mh.alt, mh.az)); if (s && inside(s)) hitsOut.push({ x: s[0], y: s[1], o: { kind: 'moon', body: A.Body.Moon, ja: '月' } }); }
   }
   function tapObject(q) {
     const s = toScreen(q); let best = null, bd = 30;
@@ -338,5 +473,6 @@ export function createPhoto(deps) {
   }
 
   return { pick, isOpen: () => !view.hidden, close: () => { if (!view.hidden) hide(); },
+    _share: shareImage, _spots: () => spots, _step: () => step, _names: () => autoNames,
     _proj: (o) => { if (!fit) return null; const p = project(fit, dirOf(o, when)); return p && [p[0] + iw / 2, p[1] + ih / 2]; }, _f: () => fit && fit.f };
 }

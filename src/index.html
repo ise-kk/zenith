@@ -269,6 +269,7 @@ textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);b
 #ph-bubble .cb-row button{height:34px}
 #ph-listbtn{display:block;width:100%;margin-top:6px;font-size:12px;color:var(--muted);padding:4px}
 #ph-done{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;border-radius:20px;background:rgba(6,9,16,.88);border:1px solid rgba(242,196,109,.5);font-size:12.5px;color:var(--ink);white-space:nowrap}
+#ph-done{max-width:calc(100% - 24px);box-sizing:border-box;gap:4px}#ph-done span{min-width:0;overflow:hidden;text-overflow:ellipsis;margin-right:4px}#ph-done button{flex:none}
 #ph-done button{height:30px;padding:0 12px;border-radius:15px;color:var(--gold);font-size:12.5px}
 #ar.photo .ar-top,#ar.photo .ar-bar,#ar.photo .ar-reticle,#ar.photo #ar-aim,#ar.photo #ar-guide,#ar.photo #ar-zoom,#ar.photo #ar-hint,#ar.photo #ar-acc,#ar.photo #ar-cal,#ar.photo #ar-fov{display:none}
 #ar.hand .ar-bar,#ar.hand #ar-zoom,#ar.hand #ar-guide{display:none}
@@ -288,6 +289,15 @@ textarea{width:100%;box-sizing:border-box;height:140px;background:var(--night);b
 #ar-guide i::before{content:"";width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid var(--gold)}
 #ar-guide i[data-here="true"]::before{width:12px;height:12px;border:2px solid var(--gold);border-radius:50%}
 #ar-perm{position:absolute;left:50%;top:60%;transform:translateX(-50%);height:48px;padding:0 22px;border-radius:24px;background:var(--gold);color:var(--night);font-weight:500;font-size:15px}
+/* v36: camera only — hide the app's star dots (bottom-left round button, icon only) */
+#ar-dots{position:absolute;z-index:6;left:calc(env(safe-area-inset-left,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 140px);width:42px;height:42px}
+#ar-dots .sl{display:none}
+#ar-dots[aria-pressed="true"]{background:rgba(6,9,16,.78);border-color:var(--gold);color:var(--gold)}
+#ar-dots[aria-pressed="true"] .sl{display:inline}
+#ar.cam #ar-acc{bottom:calc(env(safe-area-inset-bottom,0px) + 196px)}
+#ar.gaze:not(.peek) #ar-dots{opacity:0;pointer-events:none}
+#ar.hand #ar-dots,#ar.photo #ar-dots,#ar.sat-open #ar-dots{display:none}
+@media (orientation:landscape) and (max-height:600px){#ar-dots{bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}#ar.cam #ar-acc{bottom:calc(env(safe-area-inset-bottom,0px) + 60px)}}
 #ar-hint,#ar-acc{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 62px);text-align:center;font-size:13px;color:var(--ink);background:rgba(6,9,16,.75);border-radius:12px;padding:10px 12px}
 #ar-cal{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 62px);text-align:center;font-size:13px;color:var(--night);background:var(--gold);border-radius:12px;padding:10px 12px}
 #ar-acc{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 140px);color:var(--gold)}
@@ -548,9 +558,9 @@ details[open]>.more-row i{transform:rotate(90deg)}
     </form>
     <label class="field" for="skysel"><span data-t="skyDark">空の暗さ</span>
       <select id="skysel">
-        <option value="city" data-t="skyCity">都市の空（4等星まで）</option>
-        <option value="suburb" data-t="skySuburb">郊外の空（5.5等星まで）</option>
-        <option value="dark" data-t="skyDarkOpt">暗い空（6.5等星まで）</option>
+        <option value="city" data-t="skyCity">都市の空（3.5等星まで）</option>
+        <option value="suburb" data-t="skySuburb">郊外の空（4.5等星まで）</option>
+        <option value="dark" data-t="skyDarkOpt">暗い空（6等星まで）</option>
       </select>
     </label>
     <div class="clock"><span class="num"><span id="live-dot"></span><span id="clock">--:--:--</span></span><span id="clock-date"></span></div>
@@ -709,6 +719,7 @@ details[open]>.more-row i{transform:rotate(90deg)}
     <button type="button" id="ar-photo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3.5 16.5l5-5 4 4 2.5-2.5 5.5 5"/><circle cx="16" cy="9" r="1.2" fill="currentColor"/></svg><span data-t="phBtn">写真</span></button>
     <button type="button" id="ar-view" aria-label="表示" data-t-aria="viewBtn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="17" r="1.7"/><circle cx="11" cy="7.5" r="1.7"/><circle cx="19" cy="12" r="1.7"/><path d="M6 15.5l4-6.4M12.6 8.4l4.9 2.7"/></svg><span id="ar-view-l">すべて</span><i class="ar-dots"><b></b><b></b><b></b><b></b></i></button>
   </nav>
+  <button type="button" id="ar-dots" class="ar-ic" hidden aria-pressed="false" aria-label="アプリの星を消す" data-t-aria="dotsBtn"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M12 4.5l1.6 4.9 4.9 1.6-4.9 1.6L12 17.5l-1.6-4.9L5.5 11l4.9-1.6z"/><path class="sl" d="M4.5 19.5L19.5 4.5"/></svg></button>
   <button type="button" id="ar-zoom" hidden></button>
   <div id="ar-fov" class="num" hidden></div>
   <div class="ar-reticle" aria-hidden="true"></div>
@@ -780,7 +791,7 @@ details[open]>.more-row i{transform:rotate(90deg)}
       <p class="ph-priv" data-t="phPriv">写真はこの端末の中だけで使い、送信も保存もしません。</p>
     </div>
     <div id="ph-bubble" hidden><div id="ph-bq"></div><div class="cb-row"><button type="button" id="ph-yes" class="cb-main" data-t="yes">はい</button><button type="button" id="ph-no" data-t="no">ちがう</button></div><button type="button" id="ph-listbtn" data-t="phFromList">一覧から選ぶ</button></div>
-    <div id="ph-done" hidden><span></span><button type="button" id="ph-redo" data-t="phRedo">やり直す</button></div>
+    <div id="ph-done" hidden><span></span><button type="button" id="ph-share" data-t="phShare">保存・共有</button><button type="button" id="ph-redo" data-t="phRedo">やり直す</button></div>
   </div>
   <input type="file" id="ph-file" accept="image/*" hidden>
   <div id="ar-undo" hidden><span></span><button type="button" data-t="undo">元に戻す</button></div>

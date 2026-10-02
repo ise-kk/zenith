@@ -2,7 +2,7 @@
 // local East-North-Up coordinates -> gnomonic (pinhole) projection of the live sky.
 // Without sensors (PC, Claude viewer) the view is dragged by hand.
 import { orbitOf, describeSat, BRIGHT_MAG } from './satinfo.js';
-import { t, JA, kmText } from './i18n.js';
+import { t, JA, kmText, magWord } from './i18n.js';
 import { conName, starLabel, planetName, showerName } from './names.js';
 import { createPhoto } from './photo.js';
 const D2R = Math.PI / 180;
@@ -50,6 +50,7 @@ export function createAR(deps) {
   let W = 0, H = 0, DPR = 1, on = false, raf = 0;
   let fov = 62; // vertical field of view, degrees (camera off: free zoom; camera on: saved camera view / zoom)
   let cam0 = null; // camera MediaStream when the camera background is on
+  let dotsOff = false; // camera only: hide the app's star/planet dots so the real ones in the video show (names and lines stay)
   // v27: the camera's true field of view is measured once (with the Moon) and saved as the focal length
   // relative to the video's long side, so it holds for either orientation and any screen crop.
   // Pinch then zooms the video and the sky together (the overlay can no longer drift from the scenery).
@@ -214,7 +215,7 @@ export function createAR(deps) {
     const d = new Date(st.t), obs = st.place;
     const map = S.horizonMapper(d, obs);
     const sun = S.bodyAltAz(A.Body.Sun, d, obs);
-    const sky = skyState(sun.alt);
+    const sky = skyState(sun.alt, d);
     const f = (H / 2) / Math.tan(fov * D2R / 2);
     const cx = W / 2, cy = H / 2;
     const P = (vec) => { const z = dot(vec, cam.v); if (z <= 0.02) return null; return [cx + f * dot(vec, cam.r) / z, cy - f * dot(vec, cam.u) / z, z]; };
@@ -237,7 +238,7 @@ export function createAR(deps) {
     // Milky Way (faint)
     if (nightK > 0.1 && !cam0 && view !== 'few') {
       DATA.mw.forEach((polys, li) => {
-        ctx.fillStyle = `rgba(190,200,230,${(0.03 + li * 0.006) * nightK * Math.max(0, SKIES[st.sky].lm - 3.5) / 3})`;
+        ctx.fillStyle = `rgba(190,200,230,${(0.03 + li * 0.006) * nightK * Math.max(0, Math.min(1, (sky.lm - 4) / 2))})`;
         ctx.beginPath();
         for (const ring of polys) {
           let first = true;
@@ -286,8 +287,10 @@ export function createAR(deps) {
       const rad = Math.min(0.6 + Math.sqrt(kk) * 0.6, 5) * zoom;
       const a = Math.min(1, 0.3 + kk * 0.12);
       const c = STAR_RGB[i];
-      if (rad > 2) { const gg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], rad * 3); gg.addColorStop(0, rgb(c, a * 0.45)); gg.addColorStop(1, rgb(c, 0)); ctx.fillStyle = gg; ctx.fillRect(p[0] - rad * 3, p[1] - rad * 3, rad * 6, rad * 6); }
-      ctx.fillStyle = rgb(c, a); ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
+      if (!(cam0 && dotsOff)) {
+        if (rad > 2) { const gg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], rad * 3); gg.addColorStop(0, rgb(c, a * 0.45)); gg.addColorStop(1, rgb(c, 0)); ctx.fillStyle = gg; ctx.fillRect(p[0] - rad * 3, p[1] - rad * 3, rad * 6, rad * 6); }
+        ctx.fillStyle = rgb(c, a); ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
+      }
       const inf = DATA.info[i];
       if (inf) starPts.push({ x: p[0], y: p[1], i });
       if (inf && !gaze && ((DATA.cons[s[4]] && DATA.cons[s[4]].id === active && s[2] < 3.6) || s[2] < 1.5)) labels.push([p[0], p[1], starLabel(i)]);
@@ -317,7 +320,7 @@ export function createAR(deps) {
     for (const pl of S.PLANETS) {
       const h = S.bodyAltAz(pl.body, d, obs); if (h.alt < -1) continue; const p = PA(h.alt, h.az); if (!p) continue;
       const m = A.Illumination(pl.body, d).mag; const rad = Math.max(2, Math.min(6, 3 - m * 0.6)) * zoom;
-      ctx.fillStyle = 'rgba(255,236,200,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill();
+      if (!(cam0 && dotsOff)) { ctx.fillStyle = 'rgba(255,236,200,.95)'; ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, Math.PI * 2); ctx.fill(); }
       if (!gaze) { ctx.fillStyle = 'rgba(255,226,170,.95)'; ctx.fillText(`${planetName(pl)} ${magL(m)}`, p[0] + 10, p[1] + 4); }
       plPts.push({ name: planetName(pl), body: pl.body, m, x: p[0], y: p[1], o: { kind: 'planet', body: pl.body, ja: pl.ja, en: pl.en } });
     }
@@ -327,6 +330,8 @@ export function createAR(deps) {
       const ill = A.Illumination(A.Body.Moon, d).phase_fraction;
       const rr = Math.max(6, f * Math.tan(0.26 * D2R));
       const gg = ctx.createRadialGradient(mp[0], mp[1], rr, mp[0], mp[1], rr * 6); gg.addColorStop(0, `rgba(230,235,245,${0.22 * ill})`); gg.addColorStop(1, 'rgba(230,235,245,0)');
+      if (cam0 && dotsOff) { ctx.strokeStyle = 'rgba(230,234,242,.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(mp[0], mp[1], rr + 4, 0, Math.PI * 2); ctx.stroke(); }
+      else {
       ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(mp[0], mp[1], rr * 6, 0, Math.PI * 2); ctx.fill();
       // lit side toward the Sun, drawn in screen space
       const sp = P(enu(sun.alt, sun.az)); let ang;
@@ -336,6 +341,7 @@ export function createAR(deps) {
       ctx.fillStyle = 'rgba(40,44,56,.95)'; ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
       const kx = 2 * ill - 1; ctx.fillStyle = '#eef0f4'; ctx.beginPath(); ctx.arc(0, 0, rr, -Math.PI / 2, Math.PI / 2, false); ctx.ellipse(0, 0, Math.abs(kx) * rr, rr, 0, Math.PI / 2, -Math.PI / 2, kx > 0); ctx.fill();
       ctx.restore();
+      }
       if (!gaze) { ctx.fillStyle = 'rgba(230,234,242,.9)'; ctx.fillText(t('arMoonLabel', Math.round(ill * 100)), mp[0] + rr + 8, mp[1] + 4); }
       plPts.push({ name: t('moon'), body: A.Body.Moon, m: A.Illumination(A.Body.Moon, d).mag, x: mp[0], y: mp[1], o: { kind: 'moon', body: A.Body.Moon, ja: '月' } });
     }
@@ -431,7 +437,7 @@ export function createAR(deps) {
     if (aimObj && aimObj.sat) {
       const feat = S.FEATURED[aimObj.sat.id], info = describeSat(aimObj.sat, feat);
       const nm = feat ? fShort(feat) : (info.ja || aimObj.sat.name);
-      const state = aimObj.vis ? t('arSatSeen', mag(aimObj.lk.mag)) : !aimObj.lk.sunlit ? t('arSatShadow') : t('arSatBright');
+      const state = aimObj.vis ? (feat ? t('arSatSeen', mag(aimObj.lk.mag)) : t('arSatSeenG', magWord(aimObj.lk.mag))) : !aimObj.lk.sunlit ? t('arSatShadow') : t('arSatBright');
       lab.innerHTML = `<b>${esc(nm)}</b><span>${esc(t('arSatLine', info.kind, Math.round(aimObj.lk.height), state))}</span><span class="more">${t('arMore')}</span>`;
       aimTarget = { kind: 'sat', sat: aimObj.sat };
     } else if (aimObj && aimObj.pl) {
@@ -552,7 +558,7 @@ export function createAR(deps) {
     try {
       cam0 = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       const v = $('ar-video'); v.srcObject = cam0; v.hidden = false; await v.play().catch(() => { });
-      zoomK = 1; applyZoom(); btn.setAttribute('aria-pressed', 'true'); root.classList.add('cam'); $('ar-fovbtn').hidden = false; $('ar-align').hidden = false;
+      zoomK = 1; applyZoom(); btn.setAttribute('aria-pressed', 'true'); root.classList.add('cam'); $('ar-fovbtn').hidden = false; $('ar-align').hidden = false; $('ar-dots').hidden = false;
       hint(t('arCamHint'));
     } catch (e) {
       cam0 = null; btn.setAttribute('aria-pressed', 'false');
@@ -565,9 +571,10 @@ export function createAR(deps) {
     $('ar-cam').setAttribute('aria-pressed', 'false'); root.classList.remove('cam'); fov = 62;
     endCalib(); endHand(false); closeMenu(); zoomK = 1; applyZoom(); $('ar-fovbtn').hidden = true;
     // 向きを合わせるは本物の月・星が映っているときだけ（v32）。合わせた結果はそのまま残す。
-    if (aligning) cancelAlign(); $('ar-align').hidden = true;
+    if (aligning) cancelAlign(); $('ar-align').hidden = true; $('ar-dots').hidden = true; dotsOff = false; $('ar-dots').setAttribute('aria-pressed', 'false');
   }
   $('ar-cam').addEventListener('click', () => { cam0 ? cameraOff() : cameraOn(); });
+  $('ar-dots').addEventListener('click', () => { dotsOff = !dotsOff; $('ar-dots').setAttribute('aria-pressed', String(dotsOff)); hint(t(dotsOff ? 'dotsOffHint' : 'dotsOnHint')); });
   $('ar-red').addEventListener('click', () => { const r = root.classList.toggle('red'); $('ar-red').setAttribute('aria-pressed', String(r)); });
 
   // ---------- one-point pointing fix (field test A) ----------

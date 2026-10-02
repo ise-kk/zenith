@@ -16,7 +16,7 @@ export function createShare(deps) {
     const obs = st.place;
     const map = S.horizonMapper(d, obs);
     const sun = S.bodyAltAz(A.Body.Sun, d, obs);
-    const sky = skyState(sun.alt);
+    const sky = skyState(sun.alt, d);
     const proj = (alt, az) => { const r = R * Math.tan((90 - alt) * D2R / 2); return [CX - r * Math.sin(az * D2R), CY - r * Math.cos(az * D2R)]; };
     const k = R / 330; // scale relative to the on-screen map
     ctx.save();
