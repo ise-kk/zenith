@@ -46,7 +46,8 @@ const st = {
   t: Date.now(), live: true, rate: 1,
   sats: [], passes: [], win: null, events: [], hover: null, focusPass: null, computing: false,
   focusCon: null, showLines: store.get('lines', false),
-  satFilter: store.get('satFilter', 'bright'), docked: new Map(),
+  flowTab: store.get('flowTab', 'picks') === 'all' ? 'all' : 'picks',
+  satFilter: store.get('flowTab', 'picks') === 'all' ? 'all' : 'bright', docked: new Map(),
 };
 
 const TR = createTrains({ st, S });
@@ -648,42 +649,44 @@ function renderTonight() {
     const nice = f ? null : describeSat(p.sat).ja;
     return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? fName(f) : (nice || titleCase(p.sat.name)))}${nice ? `<small>${esc(titleCase(p.sat.name))}</small>` : ''}</span><span class="ss">${t('passSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, mag(p.mag))}</span></button></li>`;
   };
-  $('tonight').innerHTML = items.map(evHTML).join('');
-  // v34: a few highlights first (Moon, planets, space stations, Starlink trains, that night's calendar events);
-  // every satellite stays in the full list behind "すべて見る"
+  // v35: one list with three views — 見どころ (Moon, planets, space stations, Starlink trains, that night's events),
+  // 空の明るさ (sunset, darkness, dawn, sunrise) and すべて (everything, every satellite that can be seen)
+  const all = [
+    ...st.events.map(e => ({ ...e, type: 'ev' })),
+    ...visAll.map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
+    ...(st.trainPasses || []).map(p => ({ t: new Date(p.start.t), type: 'pass', p })),
+    ...calTonight.filter(c => c.kind !== 'phase' && c.kind !== 'opp').map(c => ({ t: c.t, type: 'cal', c })),
+  ].sort((a, b) => a.t - b.t);
   const opp = (st.cal || []).filter(e => e.kind === 'opp');
-  const picks = [];
-  items.forEach((it, i) => {
-    if (it.type === 'ev' && (it.kind === 'moon' || it.kind === 'planet')) {
-      let html = evHTML(it, i);
-      if (it.kind === 'planet') {
-        const o = opp.find(e => it.title.includes(planetName(e.planet)));
-        const n = o ? Math.round((o.t - w.sunset) / 864e5) : -1;
-        if (o && n >= 0 && n <= 7) html = html.replace('</span></button>', ` · ${t('oppSoon', n)}</span></button>`);
-      }
-      picks.push({ t: it.t, html });
-    } else if (it.type === 'pass' && (it.p.kind === 'train' || S.FEATURED[it.p.sat.id])) picks.push({ t: it.t, html: evHTML(it, i) });
-  });
-  for (const c of calTonight) {
-    if (c.kind === 'phase' || c.kind === 'opp') continue;
-    picks.push({ t: c.t, html: `<li class="ev k-cal"><button type="button" data-t="${c.t.getTime()}"><time class="num">${hm(c.t)}</time><span class="tt">${esc(calTitle(c))}</span><span class="ss">${calSub(c)}</span></button></li>` });
-  }
-  picks.sort((a, b) => a.t - b.t);
-  $('picks').innerHTML = picks.map(x => x.html).join('');
-  $('picks-none').hidden = picks.length > 0 || st.computing;
+  const rowHTML = (it, i) => {
+    if (it.type === 'cal') return `<li class="ev k-cal"><button type="button" data-t="${it.c.t.getTime()}"><time class="num">${hm(it.c.t)}</time><span class="tt">${esc(calTitle(it.c))}</span><span class="ss">${calSub(it.c)}</span></button></li>`;
+    let html = evHTML(it, i);
+    if (it.type === 'ev' && it.kind === 'planet') {
+      const o = opp.find(e => it.title.includes(planetName(e.planet)));
+      const n = o ? Math.round((o.t - w.sunset) / 864e5) : -1;
+      if (o && n >= 0 && n <= 7) html = html.replace('</span></button>', ` · ${t('oppSoon', n)}</span></button>`);
+    }
+    return html;
+  };
+  const inTab = (it) => {
+    if (st.flowTab === 'all') return true;
+    if (it.type === 'cal' || it.type === 'ev') return true; // sky light changes, Moon, planets, that night's events
+    return it.p.kind === 'train' || !!S.FEATURED[it.p.sat.id];
+  };
+  const shown = all.map((it, i) => inTab(it) ? rowHTML(it, i) : '').join('');
+  $('tonight').innerHTML = shown;
+  $('picks-none').hidden = !!shown || st.computing;
   $('picks-none').textContent = t('picksNone');
-  $('picks-h').textContent = t(isTonight ? 'picksTonight' : 'picksNight');
-  $('flow-label').textContent = t(isTonight ? 'flowAllTonight' : 'flowAllNight');
-  $('flow-n').textContent = t('flowN', items.length);
-  renderStrip();
-  document.querySelectorAll('#tonight [data-pass], #picks [data-pass]').forEach(b => b.addEventListener('click', () => {
-    const it = items[+b.dataset.pass]; st.focusPass = it.p; setTime(it.p.start.t - 30e3, 10);
+  $('flow-h').textContent = t(isTonight ? 'flowH' : 'flowHNight');
+  $('ftab-n').textContent = all.length;
+  document.querySelectorAll('[data-ftab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ftab === st.flowTab)));
+  $('back-tonight').hidden = isTonight;
+  document.querySelectorAll('#tonight [data-pass]').forEach(b => b.addEventListener('click', () => {
+    const it = all[+b.dataset.pass]; st.focusPass = it.p; setTime(it.p.start.t - 30e3, 10);
     markActive(b); sheetTo('peek');
   }));
-  document.querySelectorAll('#tonight [data-t], #picks [data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
-  $('faint-note').textContent = st.passFar ? t('farSat') : faint > 0 ? t('faintBright', faint) : '';
-  document.querySelectorAll('[data-satf]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.satf === st.satFilter)));
-  $('satf-note').textContent = t(st.satFilter === 'all' ? 'satAllNote' : 'satBrightNote', BRIGHT_MAG, Math.round(st.sats.length / 10) * 10);
+  document.querySelectorAll('#tonight [data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
+  $('faint-note').textContent = st.passFar ? t('farSat') : '';
   renderScrubTicks(items);
 }
 // satellites that fly with a space station (docked ships, its own modules): within a few km of it now and 20 min later
@@ -702,9 +705,11 @@ function findDocked(sats, d) {
   return out;
 }
 const passShown = (p) => p.kind === 'train' || S.FEATURED[p.sat.id] || st.satFilter === 'all' || p.mag <= BRIGHT_MAG;
-document.querySelectorAll('[data-satf]').forEach(b => b.addEventListener('click', () => { st.satFilter = b.dataset.satf; store.set('satFilter', st.satFilter); renderTonight(); }));
+// the star map and かざす follow the list: every satellite under すべて, otherwise the bright ones
+document.querySelectorAll('[data-ftab]').forEach(b => b.addEventListener('click', () => { st.flowTab = b.dataset.ftab; store.set('flowTab', st.flowTab); st.satFilter = st.flowTab === 'all' ? 'all' : 'bright'; $('flow').open = true; renderTonight(); }));
+$('back-tonight').addEventListener('click', () => { $('now').click(); sheetBody.scrollTop = 0; });
 function titleCase(s) { return s.replace(/\s+/g, ' ').trim(); }
-function markActive(b) { document.querySelectorAll('#tonight button, #picks button').forEach(x => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true'); }
+function markActive(b) { document.querySelectorAll('#tonight button').forEach(x => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true'); }
 
 // ---------- v34: date strip and sky calendar ----------
 const DAYMS = 864e5;
@@ -778,27 +783,6 @@ function goNight(ms) {
   if (nightKey(ms) === nightKey(base.sunset.getTime())) { $('now').click(); }
   else { st.focusPass = null; setTime(ms, 0, true); }
   sheetBody.scrollTop = 0;
-}
-function renderStrip() {
-  const base = liveWin().sunset.getTime();
-  const sel = st.win ? nightKey(st.win.sunset.getTime()) : '';
-  const dots = new Set((st.cal || []).filter(e => e.kind !== 'phase').map(e => nightKey(e.t.getTime())));
-  const wd = new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', { weekday: 'short', timeZone: TZ });
-  const dn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', timeZone: TZ });
-  let html = '';
-  for (let i = 0; i < 14; i++) {
-    const ev = localAt(base + i * DAYMS, 21);
-    const k = nightKey(ev.getTime());
-    html += `<button type="button" class="dday" data-night="${ev.getTime()}" aria-pressed="${k === sel}"><span class="w">${i === 0 ? t('dsToday') : wd.format(ev)}</span><span class="n">${dn.format(ev)}</span>${moonSvg(moonAt(ev).phase, 16)}<i class="${dots.has(k) ? 'on' : ''}"></i></button>`;
-  }
-  const strip = $('dstrip');
-  if (strip.dataset.html !== html) {
-    strip.innerHTML = html; strip.dataset.html = html;
-    strip.querySelectorAll('[data-night]').forEach((b, i) => b.addEventListener('click', () => goNight(+b.dataset.night)));
-    const on = strip.querySelector('[aria-pressed="true"]');
-    const x = on ? on.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft : 0;
-    strip.scrollLeft = x > strip.clientWidth - 50 ? x - 60 : 0;
-  }
 }
 let calKey = '', calRun = 0;
 async function renderShowers() { // (kept name) builds the sky calendar

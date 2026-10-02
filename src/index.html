@@ -348,19 +348,19 @@ body.ar-on #tip{display:none}
 @media (orientation:landscape) and (max-height:600px){.ar-bar{left:auto;right:calc(env(safe-area-inset-right,0px) + 10px);top:50%;bottom:auto;transform:translateY(-50%);width:66px;flex-direction:column;gap:6px;padding:8px 4px}#ar-zoom,#ar-guide,#ar-undo{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}#ar-acc{bottom:calc(env(safe-area-inset-bottom,0px) + 60px)}}
 
 
+
+.flow-h{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;padding:2px 0 10px}
+.flow-h::-webkit-details-marker{display:none}
+.flow-h .sec-h{margin:0;flex:1}
+.flow-h i{color:var(--muted);font-style:normal;font-size:16px;line-height:1;transform:rotate(90deg);transition:transform .2s;padding:0 4px}
+.flow:not([open]) .flow-h i{transform:none}
+.ftabs{display:flex;gap:4px;padding:3px;margin:0 0 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
+.ftabs button{flex:1;height:32px;border-radius:8px;color:var(--muted);font-size:13px;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.ftabs button small{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.ftabs button[aria-pressed="true"]{background:var(--ink);color:var(--night)}
+.ftabs button[aria-pressed="true"] small{color:var(--night);opacity:.6}
+.back-tonight{margin-top:10px;height:30px;padding:0 14px;border-radius:15px;border:1px solid var(--gold);color:var(--gold);font-size:12.5px}
 /* v34 highlights: date strip, picks, full list, sky calendar */
-.dstrip-wrap{margin:-6px 0 0}
-.dstrip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 1px 4px;scroll-snap-type:x proximity}
-.dstrip::-webkit-scrollbar{display:none}
-.dday{flex:none;width:46px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0 6px;border:1px solid var(--line);border-radius:12px;color:var(--muted);scroll-snap-align:start}
-.dday .w{font-size:10.5px;letter-spacing:.04em}
-.dday .n{font-family:var(--mono);font-size:16px;color:var(--ink);line-height:1.1}
-.dday svg{display:block}
-.dday i{width:4px;height:4px;border-radius:50%;background:transparent}
-.dday i.on{background:var(--gold)}
-.dday[aria-pressed="true"]{border-color:var(--gold);background:var(--gold-dim);color:var(--gold)}
-.dday[aria-pressed="true"] .n{color:var(--gold)}
-.ds-note{margin:6px 0 0;font-size:11px;color:var(--faint)}
 .picks{display:flex;flex-direction:column;gap:8px}
 .picks .sec-h{margin:0}
 .muted-note{margin:0;font-size:12.5px;color:var(--muted);line-height:1.7}
@@ -605,23 +605,15 @@ details[open]>.more-row i{transform:rotate(90deg)}
       <div class="kicker kick-day" id="hl-kick">Tonight</div>
       <p id="headline" data-t="calcHead">今夜の空を計算しています</p>
       <div id="night-date"></div>
+      <button type="button" class="back-tonight" id="back-tonight" data-t="backTonight" hidden>今夜に戻る</button>
     </section>
-    <div class="dstrip-wrap"><div class="dstrip" id="dstrip" role="group" data-t-aria="dsAria" aria-label="夜を選ぶ"></div>
-      <p class="ds-note" data-t="dsNote">日付を押すと、その夜に切り替わります。● は見どころのある夜</p></div>
-    <section class="picks">
-      <h3 class="sec-h"><span id="picks-h">今夜の見どころ</span><span id="calc" hidden></span></h3>
-      <ol id="picks" class="evlist"></ol>
+    <details class="flow" id="flow" open>
+      <summary class="flow-h"><span class="sec-h" id="flow-h">今夜の流れ</span><span id="calc" hidden></span><i aria-hidden="true">›</i></summary>
+      <div class="ftabs" role="group" data-t-aria="flowAria" aria-label="表示するもの"><button type="button" data-ftab="picks" data-t="ftPicks">おもな流れ</button><button type="button" data-ftab="all"><span data-t="ftAll">すべて</span><small id="ftab-n"></small></button></div>
+      <ol id="tonight" class="evlist"></ol>
       <p id="picks-none" class="muted-note" hidden></p>
-      <details class="flow" id="flow">
-        <summary class="flow-btn"><span id="flow-label">今夜の流れをすべて見る</span><small id="flow-n"></small><i>›</i></summary>
-        <div class="flow-body">
-          <div class="satf" role="group" aria-label="人工衛星" data-t-aria="satFilterAria"><button type="button" data-satf="bright" data-t="satfBright">明るいものだけ</button><button type="button" data-satf="all" data-t="satfAll">すべて</button></div>
-          <p class="satf-note" id="satf-note"></p>
-          <ol id="tonight" class="evlist"></ol>
-          <p id="faint-note"></p>
-        </div>
-      </details>
-    </section>
+      <p id="faint-note"></p>
+    </details>
     <section class="upc">
       <h3 class="sec-h"><span data-t="upcoming">これからの見どころ</span><span id="cal-calc" hidden></span></h3>
       <ul id="upcoming"></ul>

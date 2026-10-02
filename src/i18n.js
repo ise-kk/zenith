@@ -166,6 +166,12 @@ const D = {
   tzJapan: { ja: '時刻は日本時間。', en: 'Times are Japan time.' },
   tzDevice: { ja: (z) => `時刻はこの端末の時間帯（${z}）。`, en: (z) => `Times are in this device’s time zone (${z}).` },
   language: { ja: '言語', en: 'Language' },
+  // v35 flow tabs
+  flowH: { ja: '今夜の流れ', en: 'Tonight' }, flowHNight: { ja: 'この夜の流れ', en: 'That night' },
+  flowAria: { ja: '表示するもの', en: 'What to show' },
+  ftPicks: { ja: 'おもな流れ', en: 'Main events' }, ftSky: { ja: '空の明るさ', en: 'Sky light' }, ftAll: { ja: 'すべて', en: 'All' },
+  backTonight: { ja: '今夜に戻る', en: 'Back to tonight' },
+  noneSky: { ja: '', en: '' },
   // v34 highlights page: date strip, picks, sky calendar
   nightKick: { ja: (d) => `${d} の夜`, en: (d) => `Night of ${d}` },
   dsToday: { ja: '今夜', en: 'Tonight' },
