@@ -6,6 +6,7 @@ import { createTrains } from './trains.js';
 import { createShare } from './share.js';
 import { createTopics } from './topics.js';
 import { describeSat, BRIGHT_MAG } from './satinfo.js';
+import { almanac, nextEclipses, moonAt } from './almanac.js';
 import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT } from './i18n.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
@@ -571,6 +572,9 @@ async function computeNight() {
 async function computePasses() {
   if (!st.win) return;
   if (!st.sats.length && !TR.groups().length) { st.passes = []; st.trainPasses = []; renderTonight(); return; }
+  // v34: satellite passes only up to 3 days ahead (orbit predictions drift further out)
+  st.passFar = st.win.sunset.getTime() - Date.now() > 3 * 864e5;
+  if (st.passFar) { st.passes = []; st.trainPasses = []; st.computing = false; renderTonight(); return; }
   st.computing = true; renderTonight();
   const t0 = new Date(Math.max(st.win.sunset.getTime(), (st.live ? Date.now() : st.t) - 15 * 60e3));
   st.docked = findDocked(st.sats, t0);
@@ -591,7 +595,8 @@ async function computePasses() {
 function renderTonight() {
   const w = st.win; if (!w) return;
   // v33: the page heading is "今夜 · 10/2(金)" (the tab already says 見ごろ); the line under the headline is the place
-  $('hl-kick').textContent = t('tonightKick', md(w.sunset));
+  const isTonight = nightKey(w.sunset.getTime()) === nightKey(liveWin().sunset.getTime());
+  $('hl-kick').textContent = isTonight ? t('tonightKick', md(w.sunset)) : t('nightKick', md(w.sunset));
   $('night-date').textContent = placeName(st.place);
   renderLoc();
   const visAll = st.passes.filter(p => p.mag < SKIES[st.sky].lm - 0.5);
@@ -625,10 +630,16 @@ function renderTonight() {
     const nextTxt = n ? t('headNext', md(new Date(n.start.t)), hm(new Date(n.start.t)), esc(fShort(S.FEATURED[n.sat.id])), dir(n.start.az), n.max.alt.toFixed(0), mag(n.mag)) : '';
     head = t('headNone') + (nextTxt ? '<br><span class="head-sub">' + nextTxt + '</span>' : '');
   }
+  // other nights (v34): lead with that night's calendar event or brightest sight instead of station passes
+  const calTonight = calForNight(nightKey(w.sunset.getTime()));
+  if (!isTonight && (st.passFar || !nextF)) {
+    const c = calTonight.find(e => e.kind !== 'phase');
+    head = c ? calTitle(c) : t('headQuiet', md(w.sunset));
+  }
   $('headline').innerHTML = head;
 
   $('calc').hidden = !st.computing;
-  $('tonight').innerHTML = items.map((it, i) => {
+  const evHTML = (it, i) => {
     const past = (it.type === 'pass' ? it.p.end.t : it.t.getTime()) < Date.now() && st.live;
     if (it.type === 'ev') return `<li class="ev k-${it.kind}${past ? ' past' : ''}"><button type="button" data-t="${it.t.getTime()}"><time class="num">${hm(it.t)}</time><span class="tt">${it.title}</span><span class="ss">${it.sub}</span></button></li>`;
     const p = it.p, dur = Math.max(1, Math.round((p.end.t - p.start.t) / 60e3));
@@ -636,13 +647,41 @@ function renderTonight() {
     const f = S.FEATURED[p.sat.id];
     const nice = f ? null : describeSat(p.sat).ja;
     return `<li class="ev k-pass${f ? ' featured' : ''}${past ? ' past' : ''}"><button type="button" data-pass="${i}"><time class="num">${hm(it.t)}</time><span class="tt">${esc(f ? fName(f) : (nice || titleCase(p.sat.name)))}${nice ? `<small>${esc(titleCase(p.sat.name))}</small>` : ''}</span><span class="ss">${t('passSub', dir(p.start.az), dir(p.end.az), p.max.alt.toFixed(0), dur, mag(p.mag))}</span></button></li>`;
-  }).join('');
-  $('tonight').querySelectorAll('[data-pass]').forEach(b => b.addEventListener('click', () => {
+  };
+  $('tonight').innerHTML = items.map(evHTML).join('');
+  // v34: a few highlights first (Moon, planets, space stations, Starlink trains, that night's calendar events);
+  // every satellite stays in the full list behind "すべて見る"
+  const opp = (st.cal || []).filter(e => e.kind === 'opp');
+  const picks = [];
+  items.forEach((it, i) => {
+    if (it.type === 'ev' && (it.kind === 'moon' || it.kind === 'planet')) {
+      let html = evHTML(it, i);
+      if (it.kind === 'planet') {
+        const o = opp.find(e => it.title.includes(planetName(e.planet)));
+        const n = o ? Math.round((o.t - w.sunset) / 864e5) : -1;
+        if (o && n >= 0 && n <= 7) html = html.replace('</span></button>', ` · ${t('oppSoon', n)}</span></button>`);
+      }
+      picks.push({ t: it.t, html });
+    } else if (it.type === 'pass' && (it.p.kind === 'train' || S.FEATURED[it.p.sat.id])) picks.push({ t: it.t, html: evHTML(it, i) });
+  });
+  for (const c of calTonight) {
+    if (c.kind === 'phase' || c.kind === 'opp') continue;
+    picks.push({ t: c.t, html: `<li class="ev k-cal"><button type="button" data-t="${c.t.getTime()}"><time class="num">${hm(c.t)}</time><span class="tt">${esc(calTitle(c))}</span><span class="ss">${calSub(c)}</span></button></li>` });
+  }
+  picks.sort((a, b) => a.t - b.t);
+  $('picks').innerHTML = picks.map(x => x.html).join('');
+  $('picks-none').hidden = picks.length > 0 || st.computing;
+  $('picks-none').textContent = t('picksNone');
+  $('picks-h').textContent = t(isTonight ? 'picksTonight' : 'picksNight');
+  $('flow-label').textContent = t(isTonight ? 'flowAllTonight' : 'flowAllNight');
+  $('flow-n').textContent = t('flowN', items.length);
+  renderStrip();
+  document.querySelectorAll('#tonight [data-pass], #picks [data-pass]').forEach(b => b.addEventListener('click', () => {
     const it = items[+b.dataset.pass]; st.focusPass = it.p; setTime(it.p.start.t - 30e3, 10);
     markActive(b); sheetTo('peek');
   }));
-  $('tonight').querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
-  $('faint-note').textContent = faint > 0 ? t('faintBright', faint) : '';
+  document.querySelectorAll('#tonight [data-t], #picks [data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
+  $('faint-note').textContent = st.passFar ? t('farSat') : faint > 0 ? t('faintBright', faint) : '';
   document.querySelectorAll('[data-satf]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.satf === st.satFilter)));
   $('satf-note').textContent = t(st.satFilter === 'all' ? 'satAllNote' : 'satBrightNote', BRIGHT_MAG, Math.round(st.sats.length / 10) * 10);
   renderScrubTicks(items);
@@ -665,27 +704,138 @@ function findDocked(sats, d) {
 const passShown = (p) => p.kind === 'train' || S.FEATURED[p.sat.id] || st.satFilter === 'all' || p.mag <= BRIGHT_MAG;
 document.querySelectorAll('[data-satf]').forEach(b => b.addEventListener('click', () => { st.satFilter = b.dataset.satf; store.set('satFilter', st.satFilter); renderTonight(); }));
 function titleCase(s) { return s.replace(/\s+/g, ' ').trim(); }
-function markActive(b) { document.querySelectorAll('#tonight button').forEach(x => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true'); }
+function markActive(b) { document.querySelectorAll('#tonight button, #picks button').forEach(x => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true'); }
 
-function renderShowers() {
-  const now = new Date(st.live ? Date.now() : st.t);
-  const peaks = S.showerPeaks(new Date(now.getTime() - 3 * 864e5)).filter(s => s.peak > now - 2 * 864e5).slice(0, 4);
-  const lm = SKIES[st.sky].lm;
-  $('showers').innerHTML = peaks.map((s, i) => {
-    const n = S.showerNight(s, s.peak, st.place, lm);
-    const moonTxt = t(n.ill < 0.25 ? 'moonSmall' : n.ill < 0.6 ? 'moonSome' : 'moonBad');
-    const grade = t(n.rate >= 20 ? 'good' : n.rate >= 6 ? 'ok' : 'low');
-    const cls = n.rate >= 20 ? 'good' : n.rate >= 6 ? 'ok' : 'low';
-    const days = Math.round((s.peak - now) / 864e5);
-    return `<li class="shower${i === 0 ? ' first' : ''}">
-      <div class="sh-top"><span class="sh-name">${esc(JA ? s.ja : s.en)}</span><span class="grade ${cls}">${grade}</span></div>
-      <div class="sh-date num">${t('peak')} ${md(s.peak)} ${hm(s.peak)}${days > 0 ? `<small> · ${t('daysLeft', days)}</small>` : days === 0 ? `<small> · ${t('today')}</small>` : ''}</div>
-      ${n.best ? `<div class="sh-best">${t('best', hm(n.best.t), n.best.rad.toFixed(0), moonTxt, (n.ill * 100).toFixed(0))}</div>
-      <div class="sh-rate">${t('rate', t(SKIES[st.sky].key), Math.max(1, Math.round(n.rate)), s.zhr)}</div>` : `<div class="sh-best">${t('noRadiant')}</div>`}
-      <button type="button" class="sh-go" data-t="${n.best ? n.best.t.getTime() : s.peak.getTime()}">${t('seeThatNight')}</button>
-    </li>`;
-  }).join('');
-  $('showers').querySelectorAll('.sh-go').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1, true); sheetTo('peek'); }));
+// ---------- v34: date strip and sky calendar ----------
+const DAYMS = 864e5;
+const dayKey = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+const nightKey = (ms) => dayKey(ms - 12 * 3600e3); // the evening a time belongs to (noon to noon)
+const localHour = (d) => +new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: TZ }).format(d);
+// a local clock time on the calendar day of `ms` (handles the time zone and summer time)
+function localAt(ms, hour) {
+  const [y, m, d] = dayKey(ms).split('-').map(Number);
+  let g = Date.UTC(y, m - 1, d, hour);
+  for (let k = 0; k < 2; k++) {
+    const p = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).formatToParts(new Date(g));
+    const v = Object.fromEntries(p.map(x => [x.type, +x.value]));
+    g += Date.UTC(y, m - 1, d, hour) - Date.UTC(v.year, v.month - 1, v.day, v.hour, v.minute);
+  }
+  return new Date(g);
+}
+let liveWinCache = null;
+function liveWin() {
+  const k = st.place.lat + ',' + st.place.lon + ',' + Math.floor(Date.now() / 600e3);
+  if (!liveWinCache || liveWinCache.k !== k) liveWinCache = { k, w: S.nightWindow(new Date(), st.place) };
+  return liveWinCache.w;
+}
+// Moon drawn as seen (lit on the right while waxing in the northern hemisphere)
+function moonSvg(phase, size = 16) {
+  const r = size / 2 - 1, c = size / 2;
+  let ph = phase, mirror = false;
+  if (ph > 180) { ph = 360 - ph; mirror = true; }
+  if (st.place.lat < 0) mirror = !mirror;
+  const rx = Math.abs(Math.cos(ph * D2R)) * r;
+  const sweep = ph < 90 ? 0 : 1;
+  const lit = ph < 2 ? '' : `<path d="M${c} ${c - r}A${r} ${r} 0 0 1 ${c} ${c + r}A${rx.toFixed(2)} ${r} 0 0 ${sweep} ${c} ${c - r}Z" fill="#ece6d2"${mirror ? ` transform="translate(${size} 0) scale(-1 1)"` : ''}/>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${c}" cy="${c}" r="${r}" fill="rgba(236,230,210,.13)"/>${lit}</svg>`;
+}
+function calForNight(key) { return (st.cal || []).filter(e => nightKey(e.t.getTime()) === key); }
+function calTitle(e) {
+  const pt = t('part', localHour(e.t));
+  switch (e.kind) {
+    case 'phase': return t('ph' + e.q);
+    case 'opp': return t('oppT', planetName(e.planet));
+    case 'elong': return t('elongT', planetName(e.planet));
+    case 'moonPlanet': return t('mpT', pt, planetName(e.planet));
+    case 'moonStar': return t('msT', pt, JA ? e.star.ja : e.star.en);
+    case 'planets': return t('ppT', planetName(e.a), planetName(e.b));
+    case 'shower': return JA ? e.shower.ja : e.shower.en;
+  }
+  return '';
+}
+function calSub(e) {
+  switch (e.kind) {
+    case 'phase': return t('ph' + e.q + 's');
+    case 'opp': return t('oppS', mag(e.mag));
+    case 'elong': return t('elongS', e.evening, dir8(e.az), e.alt.toFixed(0), hm(e.at), mag(e.mag));
+    case 'moonPlanet': case 'moonStar': case 'planets': return t('pairS', hm(e.t), dir8(e.az), e.alt.toFixed(0), e.sep < 1 ? e.sep.toFixed(1) : e.sep.toFixed(0));
+    case 'shower': {
+      const moonTxt = t(e.ill < 0.25 || !e.moonUp ? 'moonSmall' : e.ill < 0.6 ? 'moonSome' : 'moonBad');
+      return t('shS', `${md(e.peak)} ${hm(e.peak)}`, t('part', localHour(e.t)), hm(e.t), moonTxt, t(SKIES[st.sky].key), Math.max(1, Math.round(e.rate)));
+    }
+  }
+  return '';
+}
+// when a calendar entry is tapped: show that night (at the event time when it is dark, else 21:00)
+function nightTimeFor(e) {
+  const k = nightKey(e.t.getTime());
+  const nightStart = localAt(e.t.getTime() - (localHour(e.t) < 12 ? DAYMS : 0), 21);
+  if (e.kind === 'phase' || e.kind === 'opp') return { k, ms: nightStart.getTime() };
+  return { k, ms: (e.kind === 'elong' ? e.at : e.t).getTime() };
+}
+function goNight(ms) {
+  const base = liveWin();
+  if (nightKey(ms) === nightKey(base.sunset.getTime())) { $('now').click(); }
+  else { st.focusPass = null; setTime(ms, 0, true); }
+  sheetBody.scrollTop = 0;
+}
+function renderStrip() {
+  const base = liveWin().sunset.getTime();
+  const sel = st.win ? nightKey(st.win.sunset.getTime()) : '';
+  const dots = new Set((st.cal || []).filter(e => e.kind !== 'phase').map(e => nightKey(e.t.getTime())));
+  const wd = new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', { weekday: 'short', timeZone: TZ });
+  const dn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', timeZone: TZ });
+  let html = '';
+  for (let i = 0; i < 14; i++) {
+    const ev = localAt(base + i * DAYMS, 21);
+    const k = nightKey(ev.getTime());
+    html += `<button type="button" class="dday" data-night="${ev.getTime()}" aria-pressed="${k === sel}"><span class="w">${i === 0 ? t('dsToday') : wd.format(ev)}</span><span class="n">${dn.format(ev)}</span>${moonSvg(moonAt(ev).phase, 16)}<i class="${dots.has(k) ? 'on' : ''}"></i></button>`;
+  }
+  const strip = $('dstrip');
+  if (strip.dataset.html !== html) {
+    strip.innerHTML = html; strip.dataset.html = html;
+    strip.querySelectorAll('[data-night]').forEach((b, i) => b.addEventListener('click', () => goNight(+b.dataset.night)));
+    const on = strip.querySelector('[aria-pressed="true"]');
+    const x = on ? on.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft : 0;
+    strip.scrollLeft = x > strip.clientWidth - 50 ? x - 60 : 0;
+  }
+}
+let calKey = '', calRun = 0;
+async function renderShowers() { // (kept name) builds the sky calendar
+  const now = new Date();
+  // from now to the end of next month
+  const [y, m] = dayKey(now.getTime()).split('-').map(Number);
+  const end = localAt(Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, 1, 12), 0); // first day of the month after next
+  const days = Math.min(62, (end - now) / DAYMS);
+  const key = [st.place.lat, st.place.lon, st.sky, dayKey(now.getTime()), LANG].join('|');
+  if (key !== calKey) {
+    calKey = key; const run = ++calRun;
+    $('cal-calc').hidden = false; $('cal-calc').textContent = t('calcCal');
+    const cal = await almanac(now, days, st.place, SKIES[st.sky].lm, (ms) => localAt(ms, 17), () => new Promise(r => setTimeout(r, 0)));
+    if (run !== calRun) return;
+    st.cal = cal; st.ecl = nextEclipses(now, st.place);
+    $('cal-calc').hidden = true;
+    renderTonight();
+  }
+  const sel = st.win ? nightKey(st.win.sunset.getTime()) : '';
+  let lastM = '', html = '';
+  const dn = new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', JA ? { month: 'numeric', day: 'numeric', timeZone: TZ } : { month: 'short', day: 'numeric', timeZone: TZ });
+  const wd = new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', { weekday: 'short', timeZone: TZ });
+  (st.cal || []).forEach((e, i) => {
+    const mon = +dayKey(e.t.getTime()).split('-')[1];
+    if (mon + '' !== lastM) { html += `<li class="mon">${t('monthH', mon)}</li>`; lastM = mon + ''; }
+    const k = nightKey(e.t.getTime());
+    html += `<li class="up${k === sel ? ' sel' : ''}"><button type="button" data-cal="${i}"><span class="d">${dn.format(e.t)}<small>${wd.format(e.t)}</small></span>${moonSvg(moonAt(e.t).phase, 16)}<span class="tt">${esc(calTitle(e))}</span><span class="ss">${calSub(e)}</span></button></li>`;
+  });
+  $('upcoming').innerHTML = html;
+  $('upcoming').querySelectorAll('[data-cal]').forEach(b => b.addEventListener('click', () => goNight(nightTimeFor(st.cal[+b.dataset.cal]).ms)));
+  const E = st.ecl || {};
+  const ymd = (d) => new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', { year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short', timeZone: TZ }).format(d);
+  const row = (name, e, sub) => `<div class="e">${name}${e ? ` <span class="num">${ymd(e.t)}</span><small>${sub}</small>` : `<small>${t('eclNone')}</small>`}</div>`;
+  $('eclipses').innerHTML = `<h4>${t('eclH')}</h4>`
+    + row(E.lunar ? t('eclLunar')[E.lunar.kind] : (JA ? '月食' : 'Lunar eclipse'), E.lunar, E.lunar ? t('eclLunarS', hm(E.lunar.t), E.lunar.alt.toFixed(0)) : '')
+    + row(E.solar ? t('eclSolar')[E.solar.kind] : (JA ? '日食' : 'Solar eclipse'), E.solar, E.solar ? t('eclSolarS', hm(E.solar.t), E.solar.alt.toFixed(0), Math.round(E.solar.obscuration * 100)) : '')
+    + (E.solar ? `<div class="w">${t('eclWarn')}</div>` : '');
 }
 
 // ---------- time ----------

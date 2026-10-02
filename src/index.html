@@ -125,8 +125,8 @@ ol,ul{list-style:none;margin:0;padding:0}
 .ev .tt small{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:6px;font-weight:400}
 .oc-more{margin:0;font-size:12.5px;line-height:1.75;color:#c9cfdb;border-left:2px solid rgba(160,190,240,.45);padding-left:10px}
 .oc-more b{display:block;font-size:10.5px;letter-spacing:.14em;color:#a9bde6;font-weight:500}
-#tonight{position:relative}
-#tonight::before{content:"";position:absolute;left:47px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.evlist{position:relative;list-style:none;margin:0;padding:0}
+.evlist::before{content:"";position:absolute;left:47px;top:6px;bottom:6px;width:1px;background:var(--line)}
 .ev button{width:100%;display:grid;grid-template-columns:40px 1fr;column-gap:22px;text-align:left;padding:8px 8px 8px 0;border-radius:8px;position:relative}
 .ev button::before{content:"";position:absolute;left:44px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--panel);border:1px solid var(--line-hi)}
 .ev button:hover{background:rgba(255,255,255,.025)}
@@ -347,6 +347,51 @@ body.ar-on #tip{display:none}
 #ar-where{white-space:nowrap}
 @media (orientation:landscape) and (max-height:600px){.ar-bar{left:auto;right:calc(env(safe-area-inset-right,0px) + 10px);top:50%;bottom:auto;transform:translateY(-50%);width:66px;flex-direction:column;gap:6px;padding:8px 4px}#ar-zoom,#ar-guide,#ar-undo{bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}#ar-acc{bottom:calc(env(safe-area-inset-bottom,0px) + 60px)}}
 
+
+/* v34 highlights: date strip, picks, full list, sky calendar */
+.dstrip-wrap{margin:-6px 0 0}
+.dstrip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 1px 4px;scroll-snap-type:x proximity}
+.dstrip::-webkit-scrollbar{display:none}
+.dday{flex:none;width:46px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0 6px;border:1px solid var(--line);border-radius:12px;color:var(--muted);scroll-snap-align:start}
+.dday .w{font-size:10.5px;letter-spacing:.04em}
+.dday .n{font-family:var(--mono);font-size:16px;color:var(--ink);line-height:1.1}
+.dday svg{display:block}
+.dday i{width:4px;height:4px;border-radius:50%;background:transparent}
+.dday i.on{background:var(--gold)}
+.dday[aria-pressed="true"]{border-color:var(--gold);background:var(--gold-dim);color:var(--gold)}
+.dday[aria-pressed="true"] .n{color:var(--gold)}
+.ds-note{margin:6px 0 0;font-size:11px;color:var(--faint)}
+.picks{display:flex;flex-direction:column;gap:8px}
+.picks .sec-h{margin:0}
+.muted-note{margin:0;font-size:12.5px;color:var(--muted);line-height:1.7}
+.flow{margin-top:4px}
+.flow-btn{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);font-size:14px;color:var(--ink);cursor:pointer;list-style:none}
+.flow-btn::-webkit-details-marker{display:none}
+.flow-btn span{flex:1}
+.flow-btn small{color:var(--muted);font-family:var(--mono);font-size:12px}
+.flow-btn i{color:var(--faint);font-style:normal;transition:transform .2s}
+.flow[open] .flow-btn i{transform:rotate(90deg)}
+.flow-body{display:flex;flex-direction:column;gap:8px;padding-top:12px}
+.upc{display:flex;flex-direction:column;gap:6px}
+.upc .sec-h{margin:0 0 4px}
+#upcoming{list-style:none;margin:0;padding:0}
+#upcoming .mon{font-size:12px;color:var(--muted);letter-spacing:.1em;padding:14px 0 6px}
+#upcoming .mon:first-child{padding-top:0}
+.up{border-top:1px solid var(--line)}
+.up button{width:100%;display:grid;grid-template-columns:44px 20px 1fr;column-gap:10px;align-items:start;text-align:left;padding:11px 2px;border-radius:8px}
+.up button:hover{background:rgba(255,255,255,.025)}
+.up .d{font-family:var(--mono);font-size:14px;color:var(--ink);line-height:1.25}
+.up .d small{display:block;font-family:var(--ui);font-size:10.5px;color:var(--muted)}
+.up svg{margin-top:2px}
+.up .tt{font-size:14px;color:var(--ink)}
+.up .tt b{color:var(--gold);font-weight:400;margin-right:6px}
+.up .ss{grid-column:3;font-size:12px;color:var(--muted);line-height:1.6;margin-top:2px}
+.up.sel button{background:var(--gold-dim)}
+#eclipses{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+#eclipses h4{margin:0;font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.08em}
+#eclipses .e{font-size:13.5px}
+#eclipses .e small{display:block;font-size:12px;color:var(--muted)}
+#eclipses .w{font-size:11px;color:var(--faint)}
 /* v33 pages: phone tabs (空・見ごろ・その他), wide segment (見ごろ／その他), location button */
 .loc-btn{display:none}
 #tabs{display:none}
@@ -399,7 +444,7 @@ details[open]>.more-row i{transform:rotate(90deg)}
   .brand{margin-right:0;flex:none}
   .clock{flex:none}
   .brand b{font-size:11.5px}
-  :root{--tabh:calc(56px + env(safe-area-inset-bottom,0px))}
+  :root{--tabh:calc(44px + max(env(safe-area-inset-bottom,0px) - 14px, 6px))}
   label[for="place"],label[for="skysel"],#geo{display:none}
   .loc-btn{display:inline-flex;align-items:center;gap:6px;margin-right:auto;min-width:0;flex:0 1 auto;height:30px;padding:0 12px;border:1px solid var(--line);border-radius:15px;background:var(--panel);color:var(--ink);font-size:12.5px;white-space:nowrap}
   .loc-btn .lb-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -420,11 +465,11 @@ details[open]>.more-row i{transform:rotate(90deg)}
   .infobar #peek{flex:1;min-width:0;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .infobar #peek b{color:var(--gold);font-weight:500;font-family:var(--mono);margin-right:6px}
   .infobar .go{flex:none;font-size:12px;color:var(--muted);border:1px solid var(--line-hi);border-radius:14px;padding:4px 10px}
-  .timebar{flex:none;padding:6px 12px 6px;flex-wrap:wrap;gap:4px;background:var(--night)}
-  #tabs{display:flex;flex:none;justify-content:space-around;align-items:stretch;height:var(--tabh);box-sizing:border-box;padding:4px 6px env(safe-area-inset-bottom,0px);border-top:1px solid var(--line);background:rgba(4,6,11,.97);position:relative;z-index:45}
-  #tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--faint);font-size:10.5px;letter-spacing:.06em}
+  .timebar{flex:none;padding:6px 12px 14px;flex-wrap:wrap;gap:4px;background:var(--night)}
+  #tabs{display:flex;flex:none;justify-content:space-around;align-items:stretch;height:var(--tabh);box-sizing:border-box;padding:5px 6px max(env(safe-area-inset-bottom,0px) - 14px, 6px);border-top:1px solid var(--line);background:rgba(4,6,11,.97);position:relative;z-index:45}
+  #tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;color:var(--faint);font-size:10px;letter-spacing:.06em}
   #tabs button[aria-current="page"]{color:var(--gold)}
-  #tabs svg{width:24px;height:24px}
+  #tabs svg{width:21px;height:21px}
   body.ar-on #tabs{display:none}
   .pane-seg{display:none}
   .more-h{display:block;font-family:var(--display);font-weight:500;font-size:26px;margin:0 0 18px}
@@ -561,17 +606,27 @@ details[open]>.more-row i{transform:rotate(90deg)}
       <p id="headline" data-t="calcHead">今夜の空を計算しています</p>
       <div id="night-date"></div>
     </section>
-    <details class="fold" data-fold="tonight" open>
-      <summary class="sec-h"><span data-t="flow">今夜の流れ</span><span id="calc" hidden></span></summary>
-      <div class="satf" role="group" aria-label="人工衛星" data-t-aria="satFilterAria"><button type="button" data-satf="bright" data-t="satfBright">明るいものだけ</button><button type="button" data-satf="all" data-t="satfAll">すべて</button></div>
-      <p class="satf-note" id="satf-note"></p>
-      <ol id="tonight"></ol>
-      <p id="faint-note"></p>
-    </details>
-    <details class="fold" data-fold="showers" open>
-      <summary class="sec-h"><span data-t="showers">次の流星群</span></summary>
-      <ul id="showers"></ul>
-    </details>
+    <div class="dstrip-wrap"><div class="dstrip" id="dstrip" role="group" data-t-aria="dsAria" aria-label="夜を選ぶ"></div>
+      <p class="ds-note" data-t="dsNote">日付を押すと、その夜に切り替わります。● は見どころのある夜</p></div>
+    <section class="picks">
+      <h3 class="sec-h"><span id="picks-h">今夜の見どころ</span><span id="calc" hidden></span></h3>
+      <ol id="picks" class="evlist"></ol>
+      <p id="picks-none" class="muted-note" hidden></p>
+      <details class="flow" id="flow">
+        <summary class="flow-btn"><span id="flow-label">今夜の流れをすべて見る</span><small id="flow-n"></small><i>›</i></summary>
+        <div class="flow-body">
+          <div class="satf" role="group" aria-label="人工衛星" data-t-aria="satFilterAria"><button type="button" data-satf="bright" data-t="satfBright">明るいものだけ</button><button type="button" data-satf="all" data-t="satfAll">すべて</button></div>
+          <p class="satf-note" id="satf-note"></p>
+          <ol id="tonight" class="evlist"></ol>
+          <p id="faint-note"></p>
+        </div>
+      </details>
+    </section>
+    <section class="upc">
+      <h3 class="sec-h"><span data-t="upcoming">これからの見どころ</span><span id="cal-calc" hidden></span></h3>
+      <ul id="upcoming"></ul>
+      <div id="eclipses"></div>
+    </section>
     <a class="solink" href="https://ise-kk.github.io/sol-atlas/" target="_blank" rel="noopener"><b>Sol Atlas</b><span data-t="solLink">惑星を3Dで、いまの配置で見る</span><i>→</i></a>
     </div>
     <div class="pane" id="pane-more" hidden>
