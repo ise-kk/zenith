@@ -24,7 +24,7 @@ export function orbitOf(sat) {
 const L = (ja, en) => (JA ? ja : en);
 // [pattern, ja name, en name, ja note, en note] — specific notes only where the fact is well documented
 const STAGES = [
-  [/^SL-16/, 'ゼニット・ロケットの上段（旧ソ連）', 'Zenit rocket upper stage (USSR)', '旧ソ連・ロシアのゼニット・ロケットの2段目。低い軌道を回る宇宙ごみの中でも、特に大きなものの一つ。', 'The second stage of the Soviet/Russian Zenit rocket — one of the largest pieces of debris in low orbit.'],
+  [/^SL-16/, 'ゼニット・ロケットの上段（旧ソ連）', 'Zenit rocket upper stage (USSR)', '旧ソ連・ロシアのゼニット・ロケットの2段目。', 'The second stage of the Soviet/Russian Zenit rocket.'],
   [/^SL-14/, 'ツィクロン3ロケットの上段（旧ソ連）', 'Tsyklon-3 rocket upper stage (USSR)', '旧ソ連・ウクライナのツィクロン3ロケットの3段目。気象衛星や海洋観測衛星の打ち上げに使われた。', 'The third stage of the Soviet/Ukrainian Tsyklon-3 rocket, used to launch weather and ocean satellites.'],
   [/^SL-8/, 'コスモス3Mロケットの上段（旧ソ連・ロシア）', 'Kosmos-3M rocket upper stage (USSR/Russia)', '旧ソ連・ロシアのコスモス3Mロケットの2段目。', 'The second stage of the Soviet/Russian Kosmos-3M rocket.'],
   [/^SL-3/, 'ボストーク・ロケットの上段（旧ソ連）', 'Vostok rocket upper stage (USSR)', '旧ソ連のボストーク・ロケットの上段。', 'An upper stage of the Soviet Vostok rocket.'],
@@ -110,7 +110,7 @@ export function describeSat(sat, featured) {
     const m = hit && name.match(hit[0]);
     const nm = hit ? (JA ? hit[1] : hit[2]) : null;
     const spec = hit ? (JA ? hit[3] : hit[4]) : '';
-    const gen = L('衛星を軌道へ運んだあと、そのまま地球を回り続けているロケットの一部。大きな円筒形で、太陽の光をよく反射する。', 'The part of a rocket that carried a satellite to orbit and has kept circling ever since. A large cylinder that reflects sunlight well.');
+    const gen = L('衛星を軌道へ運んだあと、そのまま地球を回り続けているロケットの一部。', 'The part of a rocket that carried a satellite to orbit and has kept circling ever since.');
     return { kind: L('ロケットの上段', 'Rocket stage'), ja: nm ? (typeof nm === 'function' ? nm(m) : nm) : L('ロケットの上段', 'Rocket upper stage'), note: spec ? spec + (JA ? '' : ' ') + gen : gen, tumble: true };
   }
   if (/DEB/.test(name)) return { kind: L('宇宙ごみ', 'Debris'), ja: L('破片（デブリ）', 'Debris'), note: L('役目を終えた衛星やロケットから生じた破片。', 'A fragment of an old satellite or rocket.'), tumble: true };
