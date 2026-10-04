@@ -695,8 +695,10 @@ function renderTonight() {
   document.querySelectorAll('[data-ftab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ftab === st.flowTab)));
   $('back-tonight').hidden = isTonight;
   document.querySelectorAll('#tonight [data-pass]').forEach(b => b.addEventListener('click', () => {
-    const it = all[+b.dataset.pass]; st.focusPass = it.p; setTime(it.p.start.t - 30e3, 10);
+    // v37: a satellite first shows what it is; its card has "この通過を見る" to jump to the pass
+    const p = all[+b.dataset.pass].p;
     markActive(b); sheetTo('peek');
+    if (p.kind === 'train') openObj({ kind: 'train', g: p.g.id, pass: p }); else openObj({ kind: 'sat', sat: p.sat, pass: p });
   }));
   document.querySelectorAll('#tonight [data-t]').forEach(b => b.addEventListener('click', () => { st.focusPass = null; setTime(+b.dataset.t, 1); markActive(b); sheetTo('peek'); }));
   $('faint-note').textContent = st.passFar ? t('farSat') : '';
@@ -795,7 +797,8 @@ function goNight(ms) {
   const base = liveWin();
   if (nightKey(ms) === nightKey(base.sunset.getTime())) { $('now').click(); }
   else { st.focusPass = null; setTime(ms, 0, true); }
-  sheetBody.scrollTop = 0;
+  // v37: go back up only when the night's list is open (to show it); otherwise stay where the tap was
+  if ($('flow').open) sheetBody.scrollTo({ top: 0, behavior: 'smooth' });
 }
 let calKey = '', calRun = 0;
 async function renderShowers() { // (kept name) builds the sky calendar
@@ -1142,7 +1145,8 @@ $('foot-credits').textContent = t('credits', TZ === 'Asia/Tokyo' ? t('tzJapan') 
 const langSel = $('lang');
 langSel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
 langSel.value = LANG;
-langSel.addEventListener('change', () => { setLang(langSel.value); const u = new URL(location.href); u.searchParams.delete('lang'); location.replace(u.toString()); });
+// v37: on the "More" page the address ends in #more; replacing it with the same address only jumps to the anchor (no reload)
+langSel.addEventListener('change', () => { setLang(langSel.value); const u = new URL(location.href); u.searchParams.delete('lang'); if (u.href === location.href) location.reload(); else location.replace(u.href); });
 // かざすは本物の空に重ねる機能なので、開くときは必ず「現在」の時刻にする（v32）。
 // 時間バーで止めた・ずらした時刻のままだと、通過の案内の秒が止まったり、星や衛星の位置が本物とずれる。
 $('t-ar').addEventListener('click', () => { if (!st.live) $('now').click(); ar.open(); });

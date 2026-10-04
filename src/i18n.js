@@ -415,6 +415,7 @@ const D = {
   noPass: { ja: '予報の範囲にはありません', en: 'none in the forecast window' },
   orbitAge: { ja: '軌道データ', en: 'Orbit data' }, hoursAgo: { ja: (h) => `${h}時間前のもの`, en: (h) => `${h} h old` }, daysAgo: { ja: (d) => `${d}日前のもの`, en: (d) => `${d} days old` },
   showPath: { ja: '通過の道すじを見る', en: 'Show the pass' },
+  showThisPass: { ja: (h) => `${h} の通過の空と道すじを見る`, en: (h) => `See the ${h} pass in the sky` },
   satFoot: { ja: '位置は公開されている軌道データ（CelesTrak）からの計算です。明るさは目安です。', en: 'Positions are computed from public orbit data (CelesTrak). Brightness is an estimate.' },
   // share
   shareTitle: { ja: '今夜の空', en: 'Tonight’s sky' },

@@ -218,7 +218,8 @@ export function createObjInfo(deps) {
         row(t('passNext'), nx ? (feat ? t('passNextV', `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))}`, dir(nx.start.az), Math.round(nx.max.alt), magT(nx.mag)) : t('passNextVG', `${md(new Date(nx.start.t))} ${hm(new Date(nx.start.t))}`, dir(nx.start.az), Math.round(nx.max.alt), magWord(nx.mag))) : t('noPass')),
         row(t('orbitAge'), age < 1 ? t('hoursAgo', Math.max(1, Math.round(age * 24))) : t('daysAgo', age.toFixed(1))),
       ];
-      if (nx || cur) out.actions.push({ label: t('showPath'), pass: cur || nx });
+      if (o.pass) out.actions.push({ label: t('showThisPass', hm(new Date(o.pass.start.t))), pass: o.pass });
+      else if (nx || cur) out.actions.push({ label: t('showPath'), pass: cur || nx });
       out.foot = t('satFoot');
     } else if (o.kind === 'train') {
       const g = TR && TR.byId(o.g), c = g && TR.cluster(g, d);
@@ -238,7 +239,8 @@ export function createObjInfo(deps) {
         c ? row(t('trainAlt'), t('about', `${Math.round(c.alt)} km`)) : '',
         g ? row(t('trainAge'), t('trainAgeV', days)) : '',
       ];
-      if (cur || nx) out.actions.push({ label: t('showPath'), pass: cur || nx });
+      if (o.pass) out.actions.push({ label: t('showThisPass', hm(new Date(o.pass.start.t))), pass: o.pass });
+      else if (cur || nx) out.actions.push({ label: t('showPath'), pass: cur || nx });
       out.foot = t('trainFoot');
     }
     return out;
