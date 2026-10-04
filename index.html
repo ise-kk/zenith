@@ -650,11 +650,13 @@ details[open]>.more-row i{transform:rotate(90deg)}
       <p id="picks-none" class="muted-note" hidden></p>
       <p id="faint-note"></p>
     </details>
-    <section class="upc">
-      <h3 class="sec-h"><span data-t="upcoming">これからの見どころ</span><span id="cal-calc" hidden></span></h3>
+    <details class="flow" id="upc" open>
+      <summary class="flow-h"><span class="sec-h"><span data-t="upcoming">これからの見どころ</span><span id="cal-calc" hidden></span></span><i aria-hidden="true">›</i></summary>
+      <div class="upc">
       <ul id="upcoming"></ul>
       <div id="eclipses"></div>
-    </section>
+      </div>
+    </details>
     <a class="solink" href="https://ise-kk.github.io/sol-atlas/" target="_blank" rel="noopener"><b>Sol Atlas</b><span data-t="solLink">惑星を3Dで、いまの配置で見る</span><i>→</i></a>
     </div>
     <div class="pane" id="pane-more" hidden>
