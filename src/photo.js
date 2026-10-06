@@ -160,6 +160,7 @@ export function createPhoto(deps) {
   const MAXPX = 2048; // the photo is scaled down once on load (memory on phones)
   let img = null, iw = 0, ih = 0, when = null, exif = {}, timeOk = false;
   let W = 0, H = 0, DPR = 1, sc = 1, ox = 0, oy = 0, fitScale = 1; // screen = o + sc * photo
+  let T0 = 0, B0 = 0, keepBand = false; // v40: the photo lives in the band between the top bar (T0) and the bottom sheet (B0) so the sheet never covers it
   let step = 'p1', pts = [], fit = null, cands = [], candI = 0, wantList = false, spots = null, autoNames = null;
 
   // ---------- sky at the photo's time ----------
@@ -214,7 +215,23 @@ export function createPhoto(deps) {
   function resize() {
     DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
     cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px';
-    if (img) { fitScale = Math.min(W / iw, H / ih); sc = fitScale; ox = (W - iw * sc) / 2; oy = (H - ih * sc) / 2; }
+    if (img) { sc = 0; refit(); }
+  }
+  // v40: measure what covers the photo (top bar, bottom sheet / done bar) and fit the photo into the free band between them
+  function band() {
+    const top = view.querySelector('.ph-top'), pnl = $('ph-panel');
+    T0 = top ? top.offsetHeight : 0;
+    B0 = pnl && !pnl.hidden && pnl.offsetHeight ? Math.max(0, H - pnl.getBoundingClientRect().top) : (step === 'done' ? 64 : 0);
+    B0 = Math.min(B0, Math.max(0, H * 0.6 - T0)); // keep at least ~40% of the screen for the photo
+  }
+  function refit() {
+    if (!img) return;
+    const wasFit = Math.abs(sc - fitScale) < 1e-6;
+    band();
+    const Hv = H - T0 - B0;
+    fitScale = Math.min(W / iw, Hv / ih);
+    if (wasFit || sc < fitScale) { sc = fitScale; ox = (W - iw * sc) / 2; oy = T0 + (Hv - ih * sc) / 2; } else clamp();
+    draw();
   }
   addEventListener('resize', () => { if (!view.hidden) { resize(); draw(); } });
   function renderTime() {
@@ -235,6 +252,7 @@ export function createPhoto(deps) {
   function panel() {
     const k = $('ph-k'), h = $('ph-h'), p = $('ph-p'), b1 = $('ph-b1'), b2 = $('ph-b2'), list = $('ph-list'), bub = $('ph-bubble');
     const pnl = $('ph-panel');
+    keepBand = false;
     pnl.hidden = step === 'done'; bub.hidden = true; list.hidden = true; list.innerHTML = '';
     b1.hidden = b2.hidden = false;
     const moon = S.bodyAltAz(A.Body.Moon, when, obs());
@@ -258,7 +276,7 @@ export function createPhoto(deps) {
     } else if (step === 'which') { // name the tapped point
       const last = pts[pts.length - 1];
       if (!wantList && cands.length && candI < cands.length) {
-        pnl.hidden = true; bub.hidden = false;
+        pnl.hidden = true; bub.hidden = false; keepBand = true; // the photo stays where it is while the question bubble is up
         $('ph-bq').innerHTML = t('phIsIt', `<b>${esc(nameOf(cands[candI].o))}</b>`);
         const sp = toScreen(last.img), bw = bub.offsetWidth || 244, bh = bub.offsetHeight || 120;
         bub.style.left = Math.max(8, Math.min(W - bw - 8, sp[0] - bw / 2)) + 'px';
@@ -276,6 +294,7 @@ export function createPhoto(deps) {
         }
       }
     }
+    if (!keepBand) refit();
   }
   $('ph-yes').addEventListener('click', () => choose(cands[candI].o));
   $('ph-no').addEventListener('click', () => { candI++; panel(); });
@@ -469,7 +488,8 @@ export function createPhoto(deps) {
   function clamp() {
     const w = iw * sc, h = ih * sc;
     ox = w <= W ? (W - w) / 2 : Math.min(0, Math.max(W - w, ox));
-    oy = h <= H ? (H - h) / 2 : Math.min(0, Math.max(H - h, oy));
+    const Hv = H - T0 - B0;
+    oy = h <= Hv ? T0 + (Hv - h) / 2 : Math.min(T0, Math.max(T0 + Hv - h, oy));
   }
 
   return { pick, isOpen: () => !view.hidden, close: () => { if (!view.hidden) hide(); },
