@@ -58,6 +58,19 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;he
 #sky{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .stage-meta{position:absolute;left:22px;top:18px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
 .stage-meta .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint)}
+/* v42: tonight's highlight */
+.hero{position:absolute;z-index:3;left:12px;right:12px;top:8px;max-width:460px;pointer-events:none;will-change:opacity,transform}
+.hero[hidden],.hero-chip[hidden]{display:none}
+.hero .k{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;color:var(--gold)}
+.hero h2{font-family:var(--display);font-weight:500;font-size:20px;line-height:1.45;margin:5px 0 4px}
+.hero p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.65}
+.hero p.c{margin-top:3px;color:var(--ink);opacity:.9}
+.hero p.v{margin-top:3px;font-size:12px;color:var(--ink);opacity:.8}
+.hero .go{pointer-events:auto;display:inline-block;margin-top:8px;font-size:13px;color:var(--gold);border:1px solid rgba(242,196,109,.45);border-radius:999px;padding:5px 14px;background:rgba(8,12,20,.55)}
+.hero-chip{position:absolute;z-index:3;left:12px;top:8px;font-size:13.5px;color:var(--ink);border:1px solid rgba(242,196,109,.45);background:rgba(242,196,109,.08);border-radius:999px;padding:6px 14px;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero-chip b{color:var(--gold);font-weight:500;margin-right:8px}
+.stage.hero-on .stage-meta{visibility:hidden}
+@media (min-width:981px){.hero,.hero-chip{left:22px;top:18px}.hero h2{font-size:22px}}
 #sky-state{font-family:var(--display);font-size:22px}
 .legend{position:absolute;left:22px;bottom:14px;display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--muted);pointer-events:none}
 .legend i{display:inline-block;width:18px;height:0;border-top:1px dashed rgba(220,230,250,.5);vertical-align:middle;margin-right:8px}
@@ -572,6 +585,8 @@ details[open]>.more-row i{transform:rotate(90deg)}
   <div class="stage">
     <canvas id="sky" data-t-aria="skyAria" aria-label="観測地から見上げた全天の星図。中心が天頂、外周が地平線、上が北、左が東"></canvas>
     <div class="stage-meta"><span class="k">NOW</span><span id="sky-state">夜</span></div>
+    <div class="hero" id="hero" role="region" data-t-aria="heroAria" hidden></div>
+    <button type="button" class="hero-chip" id="hero-chip" hidden></button>
     <div class="legend">
       <span data-t="lg1">星座にカーソルを合わせ、クリックで詳しく（スマホはタップ）</span>
       <span><i class="f"></i><span data-t="lg2">選んだ通過の軌跡</span></span>
@@ -642,6 +657,7 @@ details[open]>.more-row i{transform:rotate(90deg)}
       <ul class="more-list">
         <li><button type="button" class="more-row" data-loc><span data-t="place">観測地</span><small id="more-place"></small><i>›</i></button></li>
         <li><button type="button" class="more-row" data-loc><span data-t="skyDark">空の暗さ</span><small id="more-sky"></small><i>›</i></button></li>
+        <li><button type="button" class="more-row" id="more-motion"><span data-t="heroMotion">ズーム演出</span><small id="more-motion-v"></small></button></li>
         <li><label class="more-row langsel"><span data-t="language">言語</span><select id="lang"></select></label></li>
       </ul>
       <h3 class="more-sec" data-t="howto">使い方</h3>

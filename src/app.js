@@ -7,7 +7,8 @@ import { createShare } from './share.js';
 import { createTopics } from './topics.js';
 import { describeSat, BRIGHT_MAG } from './satinfo.js';
 import { almanac, nextEclipses, moonAt } from './almanac.js';
-import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT, magWord } from './i18n.js';
+import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT, magWord, lightTime } from './i18n.js';
+import { createHero } from './hero.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
 const { A } = S;
@@ -76,6 +77,8 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 // ---------- canvas ----------
 const cv = $('sky'), ctx = cv.getContext('2d');
 let W = 0, H = 0, R = 0, CX = 0, CY = 0, DPR = 1, R0 = 0, CY0 = 0;
+let hero = null; // tonight's highlight (created near the end)
+let RB = 0, CYB = 0, heroClip = 0; // RB/CYB: the sky circle before tonight's highlight moves it (v42)
 function resize() {
   const box = cv.getBoundingClientRect(); // the canvas may leave room for the tool row below it (phones)
   if (!box.width || !box.height) return;
@@ -83,7 +86,7 @@ function resize() {
   W = box.width; H = box.height;
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   R0 = Math.min(W, H) / 2 - (Math.min(W, H) < 600 ? 26 : 34); CY0 = H / 2;
-  R = R0; CX = W / 2; CY = CY0;
+  R = R0; CX = W / 2; CY = CY0; RB = R; CYB = CY;
 }
 addEventListener('resize', () => { resize(); });
 // the stage can change size without a window resize (rotation settling, grid changes): watch it directly
@@ -141,8 +144,10 @@ function fitAboveCard() {
       if (avail < 2 * R0 + 40) { r = Math.max(R0 * 0.78, avail / 2 - 24); cy = Math.min(CY0, Math.max(avail / 2 + 2, r + 26)); }
     }
   }
-  R += (r - R) * 0.25; CY += (cy - CY) * 0.25;
-  if (Math.abs(R - r) < 0.3) R = r; if (Math.abs(CY - cy) < 0.3) CY = cy;
+  RB += (r - RB) * 0.25; CYB += (cy - CYB) * 0.25;
+  if (Math.abs(RB - r) < 0.3) RB = r; if (Math.abs(CYB - cy) < 0.3) CYB = cy;
+  const e = hero.xf(RB, W / 2, CYB, W, H); // v42: tonight's highlight (identity when there is none)
+  R = e.R; CX = e.CX; CY = e.CY; heroClip = e.clipTop;
 }
 function draw() {
   fitAboveCard();
@@ -154,6 +159,8 @@ function draw() {
   lastFrame = { sunAlt: sun.alt, map, sky, date: d };
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, W, H);
+  const hc = heroClip;
+  if (hc > 0) { ctx.save(); ctx.beginPath(); ctx.rect(0, hc, W, H - hc); ctx.clip(); }
 
   // dome
   ctx.save();
@@ -412,6 +419,8 @@ function draw() {
 
   hits = [...satHits, ...planetHits, ...(moonHit ? [moonHit] : [])];
   drawHover();
+  hero.ring(ctx, proj);
+  if (hc > 0) ctx.restore();
 }
 let hits = [];
 let hoverCon = null, starScreen = [], mesScreen = [], radScreen = [];
@@ -813,9 +822,10 @@ async function renderShowers() { // (kept name) builds the sky calendar
     $('cal-calc').hidden = false; $('cal-calc').textContent = t('calcCal');
     const cal = await almanac(now, days, st.place, SKIES[st.sky].lm, (ms) => localAt(ms, 17), () => new Promise(r => setTimeout(r, 0)));
     if (run !== calRun) return;
-    st.cal = cal; st.ecl = nextEclipses(now, st.place);
+    st.cal = cal; st.ecl = nextEclipses(new Date(now.getTime() - 4 * 3600e3), st.place); // (v42: an eclipse that began a moment ago still counts as today's)
     $('cal-calc').hidden = true;
     renderTonight();
+    heroUpdate();
   }
   const sel = st.win ? nightKey(st.win.sunset.getTime()) : '';
   let lastM = '', html = '';
@@ -1205,6 +1215,7 @@ function showPage(p, fromUser) {
   sheet.classList.toggle('open', PHONE.matches && page !== 'sky');
   document.querySelectorAll('#tabs [data-page]').forEach(b => { if (b.dataset.page === page) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   document.querySelectorAll('.pane-seg [data-page]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.page === pane)));
+  if (page === 'sky' && hero) hero.tryStart();
   if (fromUser) { const h = page === 'sky' ? '' : HASH[page]; if (location.hash !== h) history.replaceState(null, '', location.pathname + location.search + h); }
 }
 // 'peek' goes back to the sky (used after jumping to a time), anything else opens 見ごろ
@@ -1253,6 +1264,23 @@ $('lp-skies').addEventListener('click', e => {
   const b = e.target.closest('[data-sky]'); if (!b) return;
   skySel.value = b.dataset.sky; skySel.dispatchEvent(new Event('change')); renderLoc();
 });
+// ---------- tonight's highlight (v42) ----------
+hero = createHero({
+  $, st, t, JA, esc, dir, dir8, hm, planetName, lightTime, store, DATA, SKIES, moonPenalty, ar,
+  isSkyPage: () => !PHONE.matches || page === 'sky',
+  onGo: (o) => { if (!st.live) $('now').click(); $('t-ar').click(); setTimeout(() => ar.setTarget(o), 0); },
+});
+function heroUpdate() {
+  if (!st.cal) return;
+  const now = new Date();
+  hero.update(null, { key: nightKey(now.getTime()), cal: st.cal, ecl: st.ecl, keyOf: (d) => nightKey(d.getTime ? d.getTime() : d), dayOf: dayKey, obs: st.place });
+}
+setInterval(heroUpdate, 60e3);
+window.__zen.hero = hero;
+const motionRow = $('more-motion');
+function renderMotion() { $('more-motion-v').textContent = t(store.get('hero.motion', true) ? 'heroOn' : 'heroOff'); }
+motionRow.addEventListener('click', () => { store.set('hero.motion', !store.get('hero.motion', true)); renderMotion(); });
+renderMotion();
 function boot() {
   resize();
   loadStoredTLE();
