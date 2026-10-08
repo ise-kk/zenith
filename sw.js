@@ -1,6 +1,6 @@
 // Offline support: always try the network first (so updates show up right away),
 // fall back to the last cached copy when offline.
-const CACHE = 'zenith-v40';
+const CACHE = 'zenith-v41';
 const FONT = 'zenith-font-v3'; // fonts never change under the same name: cache first, kept across versions
 const SHELL = ['./', 'index.html', 'app.js', 'data.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 // also kept for offline first use (hills, campsites); a failure here must not block the install
