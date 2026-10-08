@@ -6,6 +6,9 @@
 // known stars (2 points = 4 numbers). The focal length comes from the angle between the two stars, the
 // pointing from the pair of directions (TRIAD). The photo's time is read from its EXIF data; its location
 // is NOT read (the current observing place is used).
+// v41: first the stars are found from their pattern alone (starid.js, run in a Web Worker = photo-worker.js, fetched
+// only when a photo is opened). Picking stars by hand stays: while it runs, when nothing is found, or after a result.
+// An automatic fit is kept in the star frame (J2000), so fixing the photo's time later never moves the stars.
 
 const D2R = Math.PI / 180;
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -81,7 +84,9 @@ export function project(fit, d) {
   const M = fit.M;
   const a = [M[0] * d[0] + M[3] * d[1] + M[6] * d[2], M[1] * d[0] + M[4] * d[1] + M[7] * d[2], M[2] * d[0] + M[5] * d[1] + M[8] * d[2]];
   if (a[2] < 0.05) return null;
-  return [fit.f * a[0] / a[2], fit.f * a[1] / a[2]];
+  let x = a[0] / a[2], y = a[1] / a[2];
+  if (fit.k1) { const r2 = x * x + y * y, s = 1 + fit.k1 * r2; x *= s; y *= s; } // v41: lens distortion (automatic fit only)
+  return [fit.f * x, fit.f * y];
 }
 
 // ---------- v36: one-tap fit ----------
@@ -162,6 +167,7 @@ export function createPhoto(deps) {
   let W = 0, H = 0, DPR = 1, sc = 1, ox = 0, oy = 0, fitScale = 1; // screen = o + sc * photo
   let T0 = 0, B0 = 0, keepBand = false; // v40: the photo lives in the band between the top bar (T0) and the bottom sheet (B0) so the sheet never covers it
   let step = 'p1', pts = [], fit = null, cands = [], candI = 0, wantList = false, spots = null, autoNames = null;
+  let auto = null, worker = null, jobId = 0, starCat = null, query = ''; // v41: automatic star finding
 
   // ---------- sky at the photo's time ----------
   const obs = () => st.place;
@@ -181,6 +187,21 @@ export function createPhoto(deps) {
       const s = DATA.stars[i]; if (s[2] > 2.6) break;
       if (!starLabel(i)) continue;
       const h = map(s[0], s[1]); if (h.alt > 3) out.push({ o: { kind: 'star', i }, mag: s[2], alt: h.alt, az: h.az });
+    }
+    return out;
+  }
+  // v41: name search (hiragana is matched as katakana, so しりうす finds シリウス)
+  const kata = (x) => x.toLowerCase().replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+  const YOMI = { Mercury: 'すいせい', Venus: 'きんせい', Mars: 'かせい', Jupiter: 'もくせい', Saturn: 'どせい' };
+  function searchList(d, qn) {
+    const out = [], map = S.horizonMapper(d, obs()), hit = (...xs) => xs.some(x => x && kata(String(x)).includes(qn));
+    const m = S.bodyAltAz(A.Body.Moon, d, obs()); if (m.alt > 0 && hit(t('moon'), '月', 'つき', 'moon')) out.push({ o: moonObj(), mag: -12, alt: m.alt, az: m.az });
+    for (const pl of S.PLANETS) { if (!hit(pl.ja, pl.en, planetName(pl), YOMI[pl.en])) continue; const h = S.bodyAltAz(pl.body, d, obs()); if (h.alt > 0) out.push({ o: { kind: 'planet', body: pl.body, pl }, mag: A.Illumination(pl.body, d).mag, alt: h.alt, az: h.az }); }
+    for (let i = 0; i < DATA.stars.length; i++) {
+      const s = DATA.stars[i]; if (s[2] > 4) break;
+      const inf = DATA.info[i]; if (!inf || !starLabel(i)) continue;
+      if (!hit(starLabel(i), inf[0], inf[1])) continue;
+      const h = map(s[0], s[1]); if (h.alt > 0) out.push({ o: { kind: 'star', i }, mag: s[2], alt: h.alt, az: h.az });
     }
     return out;
   }
@@ -208,10 +229,57 @@ export function createPhoto(deps) {
   });
   function show() {
     view.hidden = false; root.classList.add('photo'); onOpen && onOpen();
-    resize(); reset(); renderTime();
+    resize(); reset(); renderTime(); startAuto();
   }
-  function hide() { view.hidden = true; root.classList.remove('photo'); img = null; fit = null; pts = []; onClose && onClose(); }
-  function reset() { autoNames = null; pts = []; fit = null; cands = []; candI = 0; wantList = false; step = 'p1'; $('ph-done').hidden = true; panel(); draw(); }
+  function hide() { view.hidden = true; root.classList.remove('photo'); img = null; fit = null; pts = []; stopAuto(); onClose && onClose(); }
+  function reset() { jobId++; auto = null; autoNames = null; pts = []; fit = null; cands = []; candI = 0; wantList = false; query = ''; step = 'p1'; $('ph-done').hidden = true; $('ph-note').hidden = true; $('ph-redo').textContent = t('phRedo'); panel(); draw(); }
+
+  // ---------- v41: automatic (star pattern) ----------
+  // J2000 -> local east/north/up at the photo's time and place (the same rotation the sky map uses)
+  function eqToEnu(d) {
+    const R = A.Rotation_EQJ_HOR(A.MakeTime(d), new A.Observer(obs().lat, obs().lon, 0)).rot;
+    return [-R[0][1], -R[1][1], -R[2][1], R[0][0], R[1][0], R[2][0], R[0][2], R[1][2], R[2][2]];
+  }
+  const vecRD = (ra, dec) => { const a = ra * D2R, d = dec * D2R, c = Math.cos(d); return [c * Math.cos(a), c * Math.sin(a), Math.sin(d)]; };
+  function autoCat() { // [x, y, z, mag, id, kind]: stars to 5th magnitude + the planets at the photo's time
+    if (!starCat) { starCat = []; for (let i = 0; i < DATA.stars.length; i++) { const s0 = DATA.stars[i]; if (s0[2] > 5) break; starCat.push(...vecRD(s0[0], s0[1]), s0[2], i, 0); } }
+    const out = starCat.slice(), o = new A.Observer(obs().lat, obs().lon, 0);
+    S.PLANETS.forEach((pl, i) => { const eq = A.Equator(pl.body, when, o, false, true); out.push(...vecRD(eq.ra * 15, eq.dec), A.Illumination(pl.body, when).mag, i, 1); });
+    return Float64Array.from(out);
+  }
+  function startAuto() {
+    const id = ++jobId;
+    step = 'auto'; panel(); draw();
+    let data;
+    try { data = img.getContext('2d').getImageData(0, 0, iw, ih).data; if (!worker) { worker = new Worker('photo-worker.js'); } }
+    catch (e) { return autoFailed(id); }
+    worker.onmessage = (e) => { const r = e.data; if (r.job !== jobId || step !== 'auto') return; r.ok ? autoFound(r) : autoFailed(id); };
+    worker.onerror = () => { stopAuto(); autoFailed(id); };
+    const cat = autoCat();
+    worker.postMessage({ job: id, rgba: data, w: iw, h: ih, f35: exif.f35 > 5 && exif.f35 < 400 ? exif.f35 : 0, cat, budgetMs: 12000 }, [data.buffer, cat.buffer]);
+  }
+  function stopAuto() { jobId++; if (worker) { worker.terminate(); worker = null; } } // frees the worker's memory
+  function setAutoFit() { // the fit in the local frame, from the star-frame answer (redone when the time changes)
+    const Q = eqToEnu(when), Me = auto.M, M = [];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M.push(Q[3 * i] * Me[j] + Q[3 * i + 1] * Me[3 + j] + Q[3 * i + 2] * Me[6 + j]);
+    fit = { f: auto.f, k1: auto.k1, M };
+  }
+  function autoFound(r) {
+    auto = { M: r.M, f: r.f, k1: r.k1, n: r.pairs.length, planets: new Set(r.pairs.filter(q => q.kind === 1).map(q => q.id)) };
+    setAutoFit();
+    // the names said back: matched planets first, then the brightest matched stars that have a name
+    const nm = [...auto.planets].map(i => planetName(S.PLANETS[i]));
+    for (const q of r.pairs) { if (nm.length >= 2) break; if (q.kind === 0) { const lb = starLabel(q.id); if (lb && !nm.includes(lb)) nm.push(lb); } }
+    autoNames = nm;
+    step = 'done'; panel();
+    const dn = $('ph-done'); dn.hidden = false;
+    dn.querySelector('span').textContent = t('phAutoDone', auto.n);
+    $('ph-redo').textContent = t('phManual');
+    let msg = nm.length ? t('phAutoNote', nm.join(t('listSep'))) : t('phTapHint');
+    if (msg.length > 27) msg = t('phAutoNote', nm[0]); // keep the one-line note on a phone's width
+    draw(); note(msg, 4500);
+  }
+  function autoFailed(id) { if (id !== jobId) return; step = 'p1'; panel(); draw(); note(t('phAutoNone'), 4500); }
   function resize() {
     DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
     cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -245,6 +313,7 @@ export function createPhoto(deps) {
   $('ph-dt').addEventListener('change', (e) => {
     const d = new Date(e.target.value); if (isNaN(d)) return;
     when = d; timeOk = true; renderTime(); $('ph-dt').hidden = true;
+    if (auto && step === 'done') { setAutoFit(); draw(); return; } // v41: the stars stay put; the Moon and planets follow the new time
     if (pts.length === 2 && pts[0].o && pts[1].o) solve(); else { panel(); draw(); }
   });
 
@@ -256,7 +325,10 @@ export function createPhoto(deps) {
     pnl.hidden = step === 'done'; bub.hidden = true; list.hidden = true; list.innerHTML = '';
     b1.hidden = b2.hidden = false;
     const moon = S.bodyAltAz(A.Body.Moon, when, obs());
-    if (step === 'p1') {
+    if (step === 'auto') {
+      k.textContent = ''; h.textContent = t('phAutoRun'); p.textContent = t('phAutoRunP');
+      b1.hidden = true; b2.textContent = t('phManual'); b2.onclick = () => { jobId++; step = 'p1'; panel(); draw(); };
+    } else if (step === 'p1') {
       k.textContent = '1 / 2';
       if (moon.alt > 0) {
         h.textContent = t('phH1Moon'); p.textContent = t('phP1Moon', dir(moon.az), Math.round(moon.alt));
@@ -285,13 +357,22 @@ export function createPhoto(deps) {
         k.textContent = pts.length + ' / 2'; h.textContent = t('phWhich'); p.textContent = t('phWhichP');
         b1.textContent = t('phRedo'); b1.onclick = reset; b2.hidden = true;
         list.hidden = false;
-        const used = pts.slice(0, -1).map(q => q.o);
-        const all = brightList(when).filter(c => !used.some(u => same(u, c.o))).sort((a, b) => a.mag - b.mag);
-        for (const c of all) {
-          const bt = document.createElement('button'); bt.type = 'button';
-          bt.innerHTML = `<span>${esc(nameOf(c.o))}</span><small>${esc(dir(c.az))} ${Math.round(c.alt)}°</small>`;
-          bt.onclick = () => choose(c.o); list.appendChild(bt);
-        }
+        // v41: a name search over every named star to 4th magnitude, the planets and the Moon above the horizon
+        const qi = document.createElement('input'); qi.type = 'search'; qi.id = 'ph-q'; qi.value = query; qi.placeholder = t('phSearch'); qi.autocomplete = 'off';
+        const items = document.createElement('div'); list.append(qi, items);
+        const fill = () => {
+          items.innerHTML = '';
+          const used = pts.slice(0, -1).map(q => q.o), qn = kata(query.trim());
+          const all = (qn ? searchList(when, qn) : brightList(when)).filter(c => !used.some(u => same(u, c.o))).sort((a, b) => a.mag - b.mag);
+          if (!all.length) { const em = document.createElement('p'); em.className = 'ph-none'; em.textContent = t('phNoHit'); items.appendChild(em); }
+          for (const c of all.slice(0, 40)) {
+            const bt = document.createElement('button'); bt.type = 'button';
+            bt.innerHTML = `<span>${esc(nameOf(c.o))}</span><small>${esc(dir(c.az))} ${Math.round(c.alt)}°</small>`;
+            bt.onclick = () => choose(c.o); items.appendChild(bt);
+          }
+        };
+        qi.addEventListener('input', () => { query = qi.value; fill(); });
+        fill();
       }
     }
     if (!keepBand) refit();
@@ -300,7 +381,7 @@ export function createPhoto(deps) {
   $('ph-no').addEventListener('click', () => { candI++; panel(); });
   $('ph-listbtn').addEventListener('click', () => { wantList = true; panel(); });
   function choose(o) {
-    pts[pts.length - 1].o = o; wantList = false; cands = []; candI = 0;
+    pts[pts.length - 1].o = o; wantList = false; cands = []; candI = 0; query = '';
     if (pts.length === 1) { if (!tryAuto()) { step = 'p2'; panel(); draw(); } } else solve();
   }
   // v36: one tap is enough when the photo's focal length is known and at least 3 more stars line up;
@@ -343,7 +424,7 @@ export function createPhoto(deps) {
   const diag = () => Math.hypot(iw, ih);
   function tapPhoto(q) {
     if (step === 'done') return tapObject(q);
-    if (step === 'confirm') return;
+    if (step === 'confirm' || step === 'auto') return;
     if (step === 'p1') { pts = [{ img: q, o: moonObj() }]; if (!tryAuto()) { step = 'p2'; panel(); draw(); } return; }
     if (step === 'p1s') { pts = [{ img: q, o: null }]; step = 'which'; cands = []; wantList = true; panel(); draw(); return; }
     if (step === 'p2' || (step === 'which' && pts.length === 2)) {
@@ -439,14 +520,15 @@ export function createPhoto(deps) {
       if (s0[2] <= 2.2) { const lb = starLabel(i); if (lb) g.fillText(lb, s[0] + 7 * k, s[1] - 6 * k); }
     }
     g.fillStyle = 'rgba(255,226,170,.8)';
-    for (const pl of S.PLANETS) {
-      const h = S.bodyAltAz(pl.body, d, obs()); if (h.alt < 0) continue;
-      const s = P(enu(h.alt, h.az)); if (!s || !inside(s)) continue;
+    S.PLANETS.forEach((pl, pi) => {
+      if (auto && !timeOk && !auto.planets.has(pi)) return; // v41: time unknown → only planets seen in the photo itself
+      const h = S.bodyAltAz(pl.body, d, obs()); if (h.alt < 0) return;
+      const s = P(enu(h.alt, h.az)); if (!s || !inside(s)) return;
       if (hitsOut) hitsOut.push({ x: s[0], y: s[1], o: { kind: 'planet', body: pl.body, ja: pl.ja, en: pl.en } });
       g.fillText(planetName(pl), s[0] + 8 * k, s[1] - 7 * k);
-    }
+    });
     const mh = S.bodyAltAz(A.Body.Moon, d, obs());
-    if (hitsOut && mh.alt > -1) { const s = P(enu(mh.alt, mh.az)); if (s && inside(s)) hitsOut.push({ x: s[0], y: s[1], o: { kind: 'moon', body: A.Body.Moon, ja: '月' } }); }
+    if (hitsOut && mh.alt > -1 && !(auto && !timeOk)) { const s = P(enu(mh.alt, mh.az)); if (s && inside(s)) hitsOut.push({ x: s[0], y: s[1], o: { kind: 'moon', body: A.Body.Moon, ja: '月' } }); }
   }
   function tapObject(q) {
     const s = toScreen(q); let best = null, bd = 30;
