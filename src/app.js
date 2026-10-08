@@ -9,6 +9,7 @@ import { describeSat, BRIGHT_MAG } from './satinfo.js';
 import { almanac, nextEclipses, moonAt } from './almanac.js';
 import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT, magWord, lightTime } from './i18n.js';
 import { createHero } from './hero.js';
+import { createTour } from './tour.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
 const { A } = S;
@@ -1264,10 +1265,50 @@ $('lp-skies').addEventListener('click', e => {
   const b = e.target.closest('[data-sky]'); if (!b) return;
   skySel.value = b.dataset.sky; skySel.dispatchEvent(new Event('change')); renderLoc();
 });
+// ---------- first-run guide (v43) ----------
+const tour = createTour({ t, store });
+const skyRect = () => { const b = cv.getBoundingClientRect(); return R > 0 ? { left: b.left + CX - R, top: b.top + CY - R, width: 2 * R, height: 2 * R } : null; };
+const TOUR_HOME = [
+  { at: [skyRect], round: 999, h: 'tourH1', p: 'tourP1' },
+  { at: [['loc-btn', 'label[for=place]'], 'geo', 'label[for=skysel]'], h: 'tourH2', p: 'tourP2' }, // phone: one button; wide screens: the header fields
+  { at: ['t-share', 't-lines', 't-ar'], items: [['t-share', 'tourL3a'], ['t-lines', 'tourL3b'], ['t-ar', 'tourL3c']], h: 'tourH3' },
+  { at: ['info-open', '.timebar'], h: 'tourH4', p: 'tourP4' },
+  { at: [['#tabs', '.pane-seg']], items: [['#tabs [data-page=sky]', 'tourL5a'], ['#tabs [data-page=hl]', 'tourL5b'], ['#tabs [data-page=more]', 'tourL5c'], ['.pane-seg [data-page=hl]', 'tourL5b'], ['.pane-seg [data-page=more]', 'tourL5c']], h: 'tourH5', p: 'tourP5' },
+];
+const TOUR_AR = [
+  { at: ['.ar-reticle'], h: 'tourA1', p: 'tourB1' },
+  { at: ['.ar-bar'], items: [['ar-find', 'tourM2a'], ['ar-cam', 'tourM2b'], ['ar-photo', 'tourM2c'], ['ar-view', 'tourM2d', 'viewBtn']], h: 'tourA2' },
+  { at: ['ar-close', 'ar-red'], items: [['ar-red', 'tourM3b'], ['ar-close', 'tourM3a']], h: 'tourA3' },
+];
+const TOUR_CAM = [
+  { at: ['ar-align', 'ar-fovbtn', 'ar-dots'], items: [['ar-align', 'tourN1a'], ['ar-fovbtn', 'tourN1b'], ['ar-dots', 'tourN1c']], h: 'tourC1' },
+];
+function tourHome(force) {
+  if (!force && tour.seen('home')) return;
+  // after the loading screen, on the sky page
+  setTimeout(() => { if ((!PHONE.matches || page === 'sky') && !ar.isOn()) tour.run('home', TOUR_HOME, { force, onDone: () => hero && hero.tryStart() }); }, force ? 300 : 1400);
+}
+// かざす: once the sensors are running (iPhone asks first); the camera guide the first time the camera is on
+$('t-ar').addEventListener('click', () => {
+  if (tour.seen('ar')) return;
+  const iv = setInterval(() => { if (!ar.isOn()) { clearInterval(iv); return; } if ($('ar-perm').hidden) { clearInterval(iv); setTimeout(() => ar.isOn() && tour.run('ar', TOUR_AR), 700); } }, 300);
+});
+if ('MutationObserver' in window) new MutationObserver(() => {
+  if ($('ar').classList.contains('cam') && !tour.seen('cam') && !tour.active()) setTimeout(() => $('ar').classList.contains('cam') && tour.run('cam', TOUR_CAM), 900);
+}).observe($('ar'), { attributes: true, attributeFilter: ['class'] });
+$('more-tour').addEventListener('click', () => { tour.reset(); if (PHONE.matches) showPage('sky', true); tourHome(true); });
+// the version under その他 comes from sw.js (the one file bumped on every release), so it is never left behind
+(function showVersion() {
+  const set = (v) => { if (v) $('more-ver').textContent = 'ZENITH ' + v; };
+  fetch('sw.js', { cache: 'no-cache' }).then(r => r.ok ? r.text() : '').then(x => { const m = /zenith-(v\d+)/.exec(x); if (m) set(m[1]); else throw 0; })
+    .catch(() => { try { caches.keys().then(ks => { const k = ks.find(k => /^zenith-v\d+$/.test(k)); if (k) set(k.slice(7)); }); } catch (e) { } });
+})();
+window.__zen.tour = tour;
+
 // ---------- tonight's highlight (v42) ----------
 hero = createHero({
   $, st, t, JA, esc, dir, dir8, hm, planetName, lightTime, store, DATA, SKIES, moonPenalty, ar,
-  isSkyPage: () => !PHONE.matches || page === 'sky',
+  isSkyPage: () => (!PHONE.matches || page === 'sky') && tour.seen('home') && !tour.active(), // the first-run guide goes first
   onGo: (o) => { if (!st.live) $('now').click(); $('t-ar').click(); setTimeout(() => ar.setTarget(o), 0); },
 });
 function heroUpdate() {
@@ -1294,3 +1335,4 @@ function boot() {
 }
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => 0);
 boot();
+tourHome(false);
