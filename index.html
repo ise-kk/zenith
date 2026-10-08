@@ -470,6 +470,22 @@ details[open]>.more-row i{transform:rotate(90deg)}
 .howto i.lgf{border-top:2px solid var(--gold)}
 .howto i.lgr{width:10px;height:10px;border:1px solid var(--gold);border-radius:50%}
 .data-box{display:flex;flex-direction:column;gap:10px}
+#tour{position:fixed;inset:0;z-index:100;touch-action:none}
+#tour .tr-dim{position:absolute;inset:0;width:100%;height:100%}
+#tour .tr-ring{stroke:rgba(242,196,109,.9);stroke-width:1.5}
+.tr-lab{position:absolute;font-size:12.5px;line-height:1.35;color:#1a1408;background:var(--gold);border-radius:8px;padding:4px 8px;text-align:center;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.tr-box{position:absolute;left:14px;right:14px;max-width:420px;margin:0 auto;background:rgba(9,12,20,.97);border:1px solid rgba(242,196,109,.4);border-radius:16px;padding:14px 16px 12px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.tr-n{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--gold);margin:0 0 4px}
+.tr-h{font-family:var(--display);font-size:18px;font-weight:500;margin:0 0 6px;color:var(--ink)}
+.tr-p{font-size:14px;line-height:1.65;margin:0 0 12px;color:#c8ceda}
+.tr-items{list-style:none;margin:2px 0 12px;padding:0;display:flex;flex-direction:column;gap:9px}
+.tr-items li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.55;color:#c8ceda}
+.tr-items b{color:var(--gold);font-weight:500;margin-right:.6em}
+.tr-ic{flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--line-hi);display:grid;place-items:center;color:var(--ink);margin-top:-2px}
+.tr-ic:empty{display:none}
+.tr-row{display:flex;justify-content:flex-end;align-items:center;gap:10px}
+.tr-skip{background:none;border:0;color:#8b95a8;font-size:13.5px;padding:8px 10px;margin-right:auto}
+.tr-next{min-width:96px;height:40px}
 .more-ver{color:var(--faint);font-size:11px;margin:16px 0 0}
 #loc-pop{position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.45);display:flex;justify-content:center;align-items:flex-start;padding:calc(54px + env(safe-area-inset-top,0px)) 12px 12px;box-sizing:border-box}
 #loc-pop[hidden]{display:none}
@@ -690,6 +706,7 @@ details[open]>.more-row i{transform:rotate(90deg)}
       <ul class="more-list">
         <li><details><summary class="more-row"><span data-t="howtoRow">使い方と記号の意味</span><i>›</i></summary>
           <ul class="more-txt howto"><li data-t="lg1"></li><li data-t="lg5"></li><li><i class="lgf"></i><span data-t="lg2"></span></li><li><i class="lgd"></i><span data-t="lg3"></span></li><li><i class="lgr"></i><span data-t="lg4"></span></li></ul></details></li>
+        <li><button type="button" class="more-row" id="more-tour"><span data-t="tourAgain">案内をもう一度見る</span><i>›</i></button></li>
       </ul>
       <h3 class="more-sec" data-t="aboutApp">このアプリについて</h3>
       <ul class="more-list">
@@ -697,7 +714,7 @@ details[open]>.more-row i{transform:rotate(90deg)}
         <li><details><summary class="more-row"><span data-t="orbitData">人工衛星の軌道データ</span><i>›</i></summary><div class="more-txt data-box"><div id="data-state"></div><button type="button" class="btn primary" id="open-data" data-t="addData">軌道データを入れる・更新する</button></div></details></li>
         <li><details><summary class="more-row"><span data-t="sources">出典とライセンス</span><i>›</i></summary><div class="more-txt foot" id="foot-credits"></div></details></li>
       </ul>
-      <p class="more-ver num">ZENITH v33</p>
+      <p class="more-ver num" id="more-ver">ZENITH</p>
     </div>
     </div>
   </aside>
