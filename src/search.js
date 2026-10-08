@@ -4,6 +4,7 @@ import { describeSat } from './satinfo.js';
 import { PROPER } from './propernames.js';
 import { t, JA, TZ, LOCALE } from './i18n.js';
 import { mtype, conName, starName, messierName, showerName } from './names.js';
+import { resolveAsterisms } from './asterisms.js';
 
 // kanji words that appear in names -> reading (so "どせい", "せいうん", "りゅうせいぐん" work)
 const READ = [
@@ -41,7 +42,7 @@ function romaji(h) {
   return out;
 }
 const CATS = [['now', 'catNow'], ['planet', 'catPlanet'], ['con', 'catCon'], ['star', 'catStar'], ['sat', 'catSat'], ['deep', 'catDeep'], ['shower', 'catShower']];
-const catOf = (o) => ({ planet: 'planet', moon: 'planet', sun: 'planet', con: 'con', star: 'star', sat: 'sat', train: 'sat', messier: 'deep', shower: 'shower' })[o.kind];
+const catOf = (o) => ({ planet: 'planet', moon: 'planet', sun: 'planet', con: 'con', aster: 'con', star: 'star', sat: 'sat', train: 'sat', messier: 'deep', shower: 'shower' })[o.kind];
 
 export function createSearch(deps) {
   const { st, S, A, DATA, OI, dir, esc, TR } = deps;
@@ -63,6 +64,8 @@ export function createSearch(deps) {
       if (seen.has(c.id)) continue; seen.add(c.id);
       add({ kind: 'con', id: c.id }, conName(c), t('kCon'), [c.ja, c.ja.replace(/座$/, ''), c.la, c.id], 80);
     }
+    // well-known star groups that are not constellations (北斗七星, 夏の大三角 …), listed with the constellations
+    for (const a of resolveAsterisms(DATA)) add({ kind: 'aster', id: a.id, a }, JA ? a.ja : a.en, t('kAster'), [a.ja, a.en, ...a.keys], 85);
     const byProper = {};
     const keysSorted = Object.keys(DATA.info).map(Number).sort((a, b) => DATA.stars[a][2] - DATA.stars[b][2]);
     for (const i of keysSorted) {

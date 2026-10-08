@@ -434,7 +434,7 @@ const D = {
   belowHorizon: { ja: '地平線の下', en: 'below the horizon' },
   nextVisible: { ja: (w) => `次に見える ${w}`, en: (w) => `next visible ${w}` },
   // kinds of things
-  kPlanet: { ja: '惑星', en: 'Planet' }, kMoon: { ja: '月', en: 'Moon' }, kStar: { ja: '恒星', en: 'Star' }, kCon: { ja: '星座', en: 'Constellation' }, kShower: { ja: '流星群', en: 'Meteor shower' }, kRadiant: { ja: '流星群の放射点', en: 'Meteor shower radiant' },
+  kPlanet: { ja: '惑星', en: 'Planet' }, kMoon: { ja: '月', en: 'Moon' }, kStar: { ja: '恒星', en: 'Star' }, kCon: { ja: '星座', en: 'Constellation' }, kAster: { ja: '星の並び', en: 'Asterism' }, asterStars: { ja: '結ぶ星', en: 'Stars' }, kShower: { ja: '流星群', en: 'Meteor shower' }, kRadiant: { ja: '流星群の放射点', en: 'Meteor shower radiant' },
   // object card
   ocNow: { ja: (d, a) => `いま <b>${d}の空、高度${a}°</b>`, en: (d, a) => `Now <b>in the ${d}, ${a}° up</b>` },
   ocBelow: { ja: 'いまは地平線の下', en: 'Below the horizon now' },

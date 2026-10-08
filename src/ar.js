@@ -270,6 +270,14 @@ export function createAR(deps) {
       ctx.stroke(); ctx.setLineDash([]);
     }
 
+    // a star group picked in search (北斗七星 …): its lines in gold, under the stars (v44)
+    if (arTarget && arTarget.kind === 'aster' && !gaze) {
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(242,196,109,.85)'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (const seg of arTarget.a.lines) { let prev = null; for (const i of seg) { const s = DATA.stars[i], h = map(s[0], s[1]), p = PA(h.alt, h.az); if (p && prev) { ctx.moveTo(prev[0], prev[1]); ctx.lineTo(p[0], p[1]); } prev = p; } }
+      ctx.stroke();
+    }
+
     // stars (brighter than the phone's small screen needs: scale radius with fov)
     const zoom = Math.max(0.8, Math.min(2.2, 62 / fov));
     const lm = sky.lm;
@@ -506,6 +514,12 @@ export function createAR(deps) {
     ctx.font = '600 13px "Zen Kaku Gothic New", sans-serif';
     if (q && q[0] > 30 && q[0] < W - 30 && q[1] > 70 && q[1] < H - 70) {
       const k = 0.5 + 0.5 * Math.sin(performance.now() / 350);
+      if (arTarget.kind === 'aster') { // the gold lines already show it: its name just above the group's highest star on screen (the middle is where the reticle sits)
+        let top = null;
+        for (const i of arTarget.a.stars) { const s = DATA.stars[i], h = S.horizonMapper(d, st.place)(s[0], s[1]), r = P(enu(h.alt, h.az)); if (r && r[1] > 60 && r[1] < H - 90 && r[0] > 20 && r[0] < W - 20 && (!top || r[1] < top[1])) top = r; }
+        const at = top || q;
+        ctx.fillStyle = '#f2c46d'; ctx.textAlign = 'center'; ctx.fillText(name, Math.max(60, Math.min(W - 60, at[0])), at[1] - 16); ctx.textAlign = 'left'; return;
+      }
       ctx.strokeStyle = `rgba(242,196,109,${0.6 + 0.4 * k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(q[0], q[1], 20 + 4 * k, 0, Math.PI * 2); ctx.stroke();
       ctx.fillStyle = '#f2c46d'; ctx.textAlign = 'center'; ctx.fillText(name, q[0], q[1] - 32); ctx.textAlign = 'left';
       return;
@@ -821,5 +835,5 @@ export function createAR(deps) {
   $('cb-cancel').addEventListener('click', endCalib);
   addEventListener('resize', () => { if (on) { resize(); renderCalib(); } });
   document.addEventListener('visibilitychange', async () => { if (on && document.visibilityState === 'visible' && navigator.wakeLock) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { } } });
-  return { open, close, isOn: () => on, setTarget, setView, _look: (alt, az) => { look = { alt, az }; }, _align: { get R() { return alignR; }, start: startAlign, go: doAlign, get cand() { return alignCand; } }, _photo: PH, _cal: { solveCalib, startCalib, get cal() { return cal; }, set target(b) { target = b; sensor = true; lastEvt = performance.now(); recent.length = 0; } } };
+  return { open, close, isOn: () => on, setTarget, setView, _look: (alt, az) => { look = { alt, az }; }, _lookTarget: () => { const p = arTarget && OI.posOf(arTarget, new Date(st.t)); if (p) look = { alt: p.alt, az: p.az }; return p; }, _align: { get R() { return alignR; }, start: startAlign, go: doAlign, get cand() { return alignCand; } }, _photo: PH, _cal: { solveCalib, startCalib, get cal() { return cal; }, set target(b) { target = b; sensor = true; lastEvt = performance.now(); recent.length = 0; } } };
 }

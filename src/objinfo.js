@@ -33,6 +33,7 @@ export function createObjInfo(deps) {
     if (o.kind === 'messier') return S.horizonMapper(d, obs)(o.m[4], o.m[5]);
     if (o.kind === 'shower') return S.horizonMapper(d, obs)(o.sh.ra, o.sh.dec);
     if (o.kind === 'con') { const c = DATA.cons.find(c => c.id === o.id); return S.horizonMapper(d, obs)(c.lab[0], c.lab[1]); }
+    if (o.kind === 'aster') return S.horizonMapper(d, obs)(o.a.ra, o.a.dec); // the middle of the group (v44)
     if (o.kind === 'sat') { const lk = S.satLook(o.sat, d, obs); return lk ? { alt: lk.alt, az: lk.az, lk } : null; }
     if (o.kind === 'train') { const g = TR && TR.byId(o.g), c = g && TR.cluster(g, d); if (!c) return null; const lk = S.satLook(c.members[Math.floor(c.members.length / 2)], d, obs); return lk ? { alt: lk.alt, az: lk.az, lk } : null; }
     return null;
@@ -47,6 +48,7 @@ export function createObjInfo(deps) {
     if (o.kind === 'con') { const c = DATA.cons.find(c => c.id === o.id); return c ? conName(c) : o.id; }
     if (o.kind === 'sat') { const f = S.FEATURED[o.sat.id]; if (f) return JA ? f.ja : f.en; const i = describeSat(o.sat); return i.ja || o.sat.name; }
     if (o.kind === 'train') return t('train');
+    if (o.kind === 'aster') return JA ? o.a.ja : o.a.en;
     return '';
   }
   function keyOf(o) { return o.kind + ':' + (o.i ?? o.id ?? o.g ?? (o.sat && o.sat.id) ?? (o.m && o.m[0]) ?? (o.sh && o.sh.code) ?? o.ja); }
@@ -177,6 +179,14 @@ export function createObjInfo(deps) {
       out.lead = m[3] == null ? '' : m[3] < 5 ? t('eyeNaked') : m[3] < 8 ? t('eyeBino') : t('eyeScope');
       out.facts = [row(t('brightness'), m[3] != null ? magU(m[3]) : ''), con ? row(t('constellation'), esc(conName(con))) : ''];
       if (con) out.actions.push({ label: t('seeCon', conName(con)), con: con.id });
+    } else if (o.kind === 'aster') { // a star group (v44): what it is, which stars, where now
+      const a = o.a, cons = [...new Set(a.stars.map(i => conOf(DATA.stars[i][0] / 15, DATA.stars[i][1])))];
+      out.kind = t('kAster');
+      out.sub = cons.map(esc).join(JA ? '・' : ', ');
+      const r = !(p.alt > 0) ? nextRiseFixed(a.ra, a.dec, d.getTime()) : null;
+      out.now = nowLine(p, p.alt > 0 ? '' : r ? t('risesAbout', when(r, d)) : '');
+      out.lead = esc(JA ? a.note.ja : a.note.en);
+      out.facts = [row(t('asterStars'), a.stars.map(i => esc(starName(i))).join(JA ? '・' : ', '))];
     } else if (o.kind === 'shower') {
       const sh = o.sh;
       out.kind = t('kRadiant');
