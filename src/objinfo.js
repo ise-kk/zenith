@@ -3,6 +3,8 @@
 // .oc-kind .oc-name .oc-sub .oc-now .oc-lead .oc-facts .oc-actions .oc-foot
 import { orbitOf, describeSat, visNote, orbitKind, isModule } from './satinfo.js';
 import { t, JA, TZ, LOCALE, kmText, lightTime, magT, magU, magWord } from './i18n.js';
+// Sol Atlas links (planet / Moon / Sun cards): off since v45 (user decision 2026-10-14). Set true to bring them back.
+const SOL_LINK = false;
 import { mtype, conName, starName, starAlt, messierName, planetName, showerName } from './names.js';
 export { mtype };
 
@@ -129,7 +131,7 @@ export function createObjInfo(deps) {
           o.en === 'Saturn' ? row(t('ringTilt'), `${Math.abs(ill.ring_tilt).toFixed(1)}°`) : '',
           row(t('riseTransitSet'), rts(rise, tr, set, d)),
         ];
-        out.actions.push({ label: t('solBtn'), href: `https://ise-kk.github.io/sol-atlas/#${o.en.toLowerCase()}` });
+        if (SOL_LINK) out.actions.push({ label: t('solBtn'), href: `https://ise-kk.github.io/sol-atlas/#${o.en.toLowerCase()}` });
       } else if (o.kind === 'moon') {
         const ph = A.MoonPhase(tt);
         out.kind = t('kMoon');
@@ -146,13 +148,13 @@ export function createObjInfo(deps) {
           row(t('nextFull'), full ? `${md(full.date)} ${hm(full.date)}` : ''),
           row(t('nextNew'), nw ? `${md(nw.date)} ${hm(nw.date)}` : ''),
         ];
-        out.actions.push({ label: t('solBtn'), href: 'https://ise-kk.github.io/sol-atlas/#moon' });
+        if (SOL_LINK) out.actions.push({ label: t('solBtn'), href: 'https://ise-kk.github.io/sol-atlas/#moon' });
       } else {
         out.kind = t('kStar');
         out.now = nowLine(p);
         out.lead = t('sunLead');
         out.facts = [row(t('fromEarth'), dist), row(t('riseTransitSet'), rts(rise, tr, set, d))];
-        out.actions.push({ label: t('solBtn'), href: 'https://ise-kk.github.io/sol-atlas/#sun' });
+        if (SOL_LINK) out.actions.push({ label: t('solBtn'), href: 'https://ise-kk.github.io/sol-atlas/#sun' });
       }
     } else if (o.kind === 'star') {
       const s = DATA.stars[o.i], inf = DATA.info[o.i] || [];
