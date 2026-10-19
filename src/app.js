@@ -9,6 +9,7 @@ import { describeSat, BRIGHT_MAG } from './satinfo.js';
 import { almanac, nextEclipses, moonAt } from './almanac.js';
 import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT, magWord, lightTime } from './i18n.js';
 import { createHero } from './hero.js';
+import { fs, setTextStep, textStep, STEP_KEYS } from './textsize.js';
 import { createTour } from './tour.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
@@ -55,6 +56,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('zenith.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('zenith.' + k, JSON.stringify(v)); } catch (e) { } },
 };
+setTextStep(store.get('textStep', 0)); // v47: before anything is drawn
 const st = {
   place: store.get('place', PLACES[0]),
   sky: store.get('sky', 'suburb'),
@@ -227,7 +229,7 @@ function draw() {
   ctx.strokeStyle = `rgba(150,170,210,${(linesOn ? 0.2 : 0.055) * (st.focusCon ? 0.5 : 1) * (0.6 + 0.4 * nightK)})`;
   ctx.beginPath(); for (const c of CON) if (c.id !== active) strokeLines(c); ctx.stroke();
   if (linesOn && !st.focusCon) {
-    ctx.font = '500 10.5px "Zen Kaku Gothic New", sans-serif'; ctx.textAlign = 'center';
+    ctx.font = `500 ${fs(10.5)}px "Zen Kaku Gothic New", sans-serif`; ctx.textAlign = 'center';
     ctx.fillStyle = `rgba(150,165,200,${0.4 * nightK + 0.1})`;
     for (const c of CON) { if (c.id === active) continue; const h = map(c.lab[0], c.lab[1]); if (h.alt < 8) continue; const [x, y] = proj(h.alt, h.az); ctx.fillText(conName(c), x, y); }
   }
@@ -274,17 +276,17 @@ function draw() {
   ctx.textAlign = 'left';
   if (active) {
     const aidx = new Set(CON.map((c, i) => c.id === active ? i : -1).filter(i => i >= 0));
-    ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = 'rgba(236,232,220,.92)';
+    ctx.font = `${fs(12)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillStyle = 'rgba(236,232,220,.92)';
     for (const ss of starScreen) { const s = DATA.stars[ss.i]; if (!aidx.has(s[4]) || s[2] > (st.focusCon ? 3.6 : 2.6)) continue; ctx.fillText(starLabel(ss.i), ss.x + 7, ss.y - 5); }
     const c0 = CON.find(c => c.id === active);
     const h = map(c0.lab[0], c0.lab[1]);
     if (h.alt > -5) {
       const [x, y] = proj(Math.max(h.alt, 2), h.az);
-      ctx.font = '700 17px "Shippori Mincho", serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)';
+      ctx.font = `700 ${fs(17)}px "Shippori Mincho", serif`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)';
       ctx.fillText(conName(c0), x, y + 22); ctx.textAlign = 'left';
     }
     if (st.focusCon) {
-      ctx.font = '11px "JetBrains Mono", monospace';
+      ctx.font = `${fs(11)}px "JetBrains Mono", monospace`;
       for (const mo of DATA.messier) {
         if (!aidx.has(mo[6])) continue;
         const hh = map(mo[4], mo[5]); if (hh.alt < 0) continue;
@@ -295,7 +297,7 @@ function draw() {
       }
     }
   } else if (st.showLines) {
-    ctx.font = '11px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = `rgba(215,222,236,${0.5 * nightK + 0.15})`;
+    ctx.font = `${fs(11)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillStyle = `rgba(215,222,236,${0.5 * nightK + 0.15})`;
     for (const ss of starScreen) { if (DATA.stars[ss.i][2] > 1.6) continue; ctx.fillText(starLabel(ss.i), ss.x + 6, ss.y - 5); }
   }
 
@@ -307,7 +309,7 @@ function draw() {
     const [x, y] = proj(h.alt, h.az);
     ctx.strokeStyle = 'rgba(242,196,109,.75)'; ctx.lineWidth = 1;
     for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); ctx.lineTo(x + Math.cos(a) * 15, y + Math.sin(a) * 15); ctx.stroke(); }
-    ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = '11px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('radiant', showerShort(sh)), x + 18, y + 4);
+    ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = `${fs(11)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillText(t('radiant', showerShort(sh)), x + 18, y + 4);
     radScreen.push({ x, y, o: { kind: 'shower', sh } });
   }
 
@@ -321,7 +323,7 @@ function draw() {
     const rad = Math.max(1.6, Math.min(4.5, 2.4 - m * 0.55));
     ctx.fillStyle = 'rgba(255,236,200,.95)'; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
     const pn = planetName(p);
-    ctx.fillStyle = 'rgba(255,226,170,.9)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; if (x > CX + R * 0.6) { ctx.textAlign = 'right'; ctx.fillText(pn, x - 8, y + 4); ctx.textAlign = 'left'; } else ctx.fillText(pn, x + 8, y + 4);
+    ctx.fillStyle = 'rgba(255,226,170,.9)'; ctx.font = `500 ${fs(12)}px "Zen Kaku Gothic New", sans-serif`; if (x > CX + R * 0.6) { ctx.textAlign = 'right'; ctx.fillText(pn, x - 8, y + 4); ctx.textAlign = 'left'; } else ctx.fillText(pn, x + 8, y + 4);
     planetHits.push({ kind: 'planet', name: pn, x, y, alt: h.alt, az: h.az, mag: m, o: { kind: 'planet', body: p.body, ja: p.ja, en: p.en } });
   }
   // moon
@@ -362,7 +364,7 @@ function draw() {
     } else {
       ctx.strokeStyle = 'rgba(200,215,240,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.stroke();
     }
-    if (featured) { ctx.fillStyle = vis ? '#f4f8ff' : 'rgba(200,215,240,.6)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(fShort(S.FEATURED[sat.id]) + (vis ? '' : t('inShadow')), x + 8, y - 6); }
+    if (featured) { ctx.fillStyle = vis ? '#f4f8ff' : 'rgba(200,215,240,.6)'; ctx.font = `500 ${fs(12)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillText(fShort(S.FEATURED[sat.id]) + (vis ? '' : t('inShadow')), x + 8, y - 6); }
     satHits.push({ kind: 'sat', name: featured ? fName(S.FEATURED[sat.id]) : sat.name, x, y, ...lk, vis, o: { kind: 'sat', sat } });
   }
   // Starlink trains: only the bunched-up members, only while sunlit against a dark sky
@@ -375,7 +377,7 @@ function draw() {
       if (!head) head = { x, y, lk }; n++;
     }
     if (head && n >= 3) {
-      ctx.fillStyle = 'rgba(236,244,255,.8)'; ctx.font = '500 11.5px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('trainShort'), head.x + 8, head.y - 6);
+      ctx.fillStyle = 'rgba(236,244,255,.8)'; ctx.font = `500 ${fs(11.5)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillText(t('trainShort'), head.x + 8, head.y - 6);
       satHits.push({ kind: 'train', name: t('train'), x: head.x, y: head.y, ...head.lk, vis: true, o: { kind: 'train', g: c.g.id } });
     }
   }
@@ -388,7 +390,7 @@ function draw() {
       ctx.beginPath(); let prev = null;
       for (const s of path.pts) { if (s.alt <= 0) { prev = null; continue; } const q = proj(s.alt, s.az); if (prev) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); prev = q; }
       ctx.stroke(); ctx.setLineDash([]);
-      ctx.font = '10.5px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+      ctx.font = `${fs(10.5)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center';
       for (const s of path.pts) {
         if (!s.hour || s.alt <= 2) continue;
         const [x, y] = proj(s.alt, s.az);
@@ -411,10 +413,10 @@ function draw() {
   ctx.strokeStyle = 'rgba(160,178,215,.10)'; ctx.lineWidth = 1;
   for (const a of [30, 60]) { const r = R * Math.tan((90 - a) * D2R / 2); ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.stroke(); }
   ctx.strokeStyle = 'rgba(190,205,235,.38)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = 'rgba(210,220,240,.8)'; ctx.font = '500 13px "Zen Kaku Gothic New", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(210,220,240,.8)'; ctx.font = `500 ${fs(13)}px "Zen Kaku Gothic New", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const edge = (az, k) => [CX - (R + k) * Math.sin(az * D2R), CY - (R + k) * Math.cos(az * D2R)];
   for (const [k, az] of [['N', 0], ['E', 90], ['S', 180], ['W', 270]]) { const [x, y] = edge(az, 15); ctx.fillText(t(k), x, y); }
-  ctx.fillStyle = 'rgba(150,165,200,.55)'; ctx.font = '10px "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(150,165,200,.55)'; ctx.font = `${fs(10)}px "JetBrains Mono", monospace`;
   for (const [k, az] of [['NE', 45], ['SE', 135], ['SW', 225], ['NW', 315]]) { const [x, y] = edge(az, 14); ctx.fillText(k, x, y); }
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
 
@@ -482,7 +484,7 @@ function drawMoon(x, y, r, frac, phaseDeg, mh, map) {
   ctx.ellipse(0, 0, Math.abs(k) * r, r, 0, Math.PI / 2, -Math.PI / 2, k > 0);
   ctx.fill();
   ctx.restore();
-  ctx.fillStyle = 'rgba(230,234,242,.85)'; ctx.font = '500 12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('moon'), x + r + 6, y + 4);
+  ctx.fillStyle = 'rgba(230,234,242,.85)'; ctx.font = `500 ${fs(12)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillText(t('moon'), x + r + 6, y + 4);
 }
 
 function drawPass(p, focused) {
@@ -497,7 +499,7 @@ function drawPass(p, focused) {
     ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - 9 * Math.cos(a - 0.4), y2 - 9 * Math.sin(a - 0.4)); ctx.lineTo(x2 - 9 * Math.cos(a + 0.4), y2 - 9 * Math.sin(a + 0.4)); ctx.fill();
   }
   if (focused) {
-    ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = '11px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = `${fs(11)}px "JetBrains Mono", monospace`;
     const [x0, y0] = pts[0]; ctx.fillText(hm(new Date(p.start.t)), x0 + 6, y0 + 14);
     const mx = proj(p.max.alt, p.max.az); ctx.fillText(hm(new Date(p.max.t)) + ' ↑' + p.max.alt.toFixed(0) + '°', mx[0] + 8, mx[1] - 8);
   }
@@ -1318,6 +1320,10 @@ function heroUpdate() {
 }
 setInterval(heroUpdate, 60e3);
 window.__zen.hero = hero;
+// text size (v47): 標準 → 大 → 特大 → 標準
+function renderTextSize() { $('more-text-v').textContent = t(STEP_KEYS[textStep()]); }
+$('more-text').addEventListener('click', () => { setTextStep((textStep() + 1) % STEP_KEYS.length); store.set('textStep', textStep()); renderTextSize(); dispatchEvent(new Event('resize')); });
+renderTextSize();
 const motionRow = $('more-motion');
 function renderMotion() { $('more-motion-v').textContent = t(store.get('hero.motion', true) ? 'heroOn' : 'heroOff'); }
 motionRow.addEventListener('click', () => { store.set('hero.motion', !store.get('hero.motion', true)); renderMotion(); });

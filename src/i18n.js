@@ -243,6 +243,7 @@ const D = {
   heroChipTime: { ja: (n, c) => `${n}　${c}`, en: (n, c) => `${n}  ${c}` },
   heroChipPos: { ja: (n, d, a) => `${n}　${d} ${a}°`, en: (n, d, a) => `${n}  ${d} ${a}°` },
   heroPairName: { ja: (a, b) => `${a}と${b}`, en: (a, b) => `${a} & ${b}` },
+  textSize: { ja: '文字の大きさ', en: 'Text size' }, tsStd: { ja: '標準', en: 'Standard' }, tsLarge: { ja: '大', en: 'Large' }, tsXLarge: { ja: '特大', en: 'Extra large' },
   heroMotion: { ja: 'ズーム演出', en: 'Zoom-in effect' }, heroOn: { ja: 'オン', en: 'On' }, heroOff: { ja: 'オフ', en: 'Off' },
   heroAria: { ja: '今夜の主役', en: "Tonight's highlight" },
   // v43 first-run guide

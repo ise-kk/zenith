@@ -1,6 +1,7 @@
 // "かざすモード": point the phone at the sky. Orientation sensors -> camera basis in
 // local East-North-Up coordinates -> gnomonic (pinhole) projection of the live sky.
 // Without sensors (PC, Claude viewer) the view is dragged by hand.
+import { fs } from './textsize.js';
 import { orbitOf, describeSat, BRIGHT_MAG } from './satinfo.js';
 import { t, JA, kmText, magWord } from './i18n.js';
 import { conName, starLabel, planetName, showerName } from './names.js';
@@ -303,14 +304,14 @@ export function createAR(deps) {
       if (inf) starPts.push({ x: p[0], y: p[1], i });
       if (inf && !gaze && ((DATA.cons[s[4]] && DATA.cons[s[4]].id === active && s[2] < 3.6) || s[2] < 1.5)) labels.push([p[0], p[1], starLabel(i)]);
     }
-    ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = 'rgba(232,230,222,.85)'; ctx.textAlign = 'left';
+    ctx.font = `${fs(12)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillStyle = 'rgba(232,230,222,.85)'; ctx.textAlign = 'left';
     for (const [x, y, t] of labels) ctx.fillText(t, x + 8, y - 6);
 
     // constellation name at its label point
     if (active && active !== aimCon && !gaze) {
       const c0 = DATA.cons.find(c => c.id === active);
       const h = map(c0.lab[0], c0.lab[1]); const p = PA(h.alt, h.az);
-      if (p) { ctx.font = '700 20px "Shippori Mincho", serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)'; ctx.fillText(conName(c0), p[0], p[1] + 26); ctx.textAlign = 'left'; }
+      if (p) { ctx.font = `700 ${fs(20)}px "Shippori Mincho", serif`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(246,212,140,.95)'; ctx.fillText(conName(c0), p[0], p[1] + 26); ctx.textAlign = 'left'; }
     }
 
     // meteor radiants
@@ -319,12 +320,12 @@ export function createAR(deps) {
       const h = map(sh.ra, sh.dec); const p = PA(h.alt, h.az); if (!p || h.alt < 0) continue;
       ctx.strokeStyle = 'rgba(242,196,109,.8)'; ctx.lineWidth = 1.2;
       for (let q = 0; q < 8; q++) { const an = q * Math.PI / 4; ctx.beginPath(); ctx.moveTo(p[0] + Math.cos(an) * 9, p[1] + Math.sin(an) * 9); ctx.lineTo(p[0] + Math.cos(an) * 20, p[1] + Math.sin(an) * 20); ctx.stroke(); }
-      ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillText(t('arRadiant', showerName(sh)), p[0] + 24, p[1] + 4);
+      ctx.fillStyle = 'rgba(242,196,109,.95)'; ctx.font = `${fs(12)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillText(t('arRadiant', showerName(sh)), p[0] + 24, p[1] + 4);
     }
 
     // planets, Moon, Sun
     const plPts = [];
-    ctx.font = '500 13px "Zen Kaku Gothic New", sans-serif';
+    ctx.font = `500 ${fs(13)}px "Zen Kaku Gothic New", sans-serif`;
     for (const pl of S.PLANETS) {
       const h = S.bodyAltAz(pl.body, d, obs); if (h.alt < -1) continue; const p = PA(h.alt, h.az); if (!p) continue;
       const m = A.Illumination(pl.body, d).mag; const rad = Math.max(2, Math.min(6, 3 - m * 0.6)) * zoom;
@@ -416,9 +417,9 @@ export function createAR(deps) {
     for (let az = 0; az < 360; az += 15) {
       const p = PA(0, az); if (!p) continue;
       const card = az % 90 === 0, mid = az % 45 === 0;
-      if (gaze) { if (mid) { ctx.font = card ? '14px "Zen Kaku Gothic New", sans-serif' : '11px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = card ? 'rgba(210,218,236,.42)' : 'rgba(190,200,222,.3)'; ctx.fillText(dir8(az), p[0], p[1] + 22); } continue; }
+      if (gaze) { if (mid) { ctx.font = card ? `${fs(14)}px "Zen Kaku Gothic New", sans-serif` : `${fs(11)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillStyle = card ? 'rgba(210,218,236,.42)' : 'rgba(190,200,222,.3)'; ctx.fillText(dir8(az), p[0], p[1] + 22); } continue; }
       ctx.strokeStyle = 'rgba(190,205,235,.5)'; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(p[0], p[1] + (card ? 12 : 6)); ctx.stroke();
-      if (mid) { ctx.font = card ? '700 16px "Zen Kaku Gothic New", sans-serif' : '12px "Zen Kaku Gothic New", sans-serif'; ctx.fillStyle = card ? 'rgba(236,240,248,.95)' : 'rgba(180,192,215,.8)'; ctx.fillText(dir8(az), p[0], p[1] + (card ? 30 : 24)); }
+      if (mid) { ctx.font = card ? `700 ${fs(16)}px "Zen Kaku Gothic New", sans-serif` : `${fs(12)}px "Zen Kaku Gothic New", sans-serif`; ctx.fillStyle = card ? 'rgba(236,240,248,.95)' : 'rgba(180,192,215,.8)'; ctx.fillText(dir8(az), p[0], p[1] + (card ? 30 : 24)); }
     }
     ctx.textAlign = 'left';
     const below = altaz(screenDir(cx, H)).alt;
@@ -511,7 +512,7 @@ export function createAR(deps) {
     const p = OI.posOf(arTarget, d); if (!p) return;
     const vec = enu(p.alt, p.az), q = P(vec);
     const name = OI.nameOf(arTarget) + (p.alt < 0 ? t('belowTag') : '');
-    ctx.font = '600 13px "Zen Kaku Gothic New", sans-serif';
+    ctx.font = `600 ${fs(13)}px "Zen Kaku Gothic New", sans-serif`;
     if (q && q[0] > 30 && q[0] < W - 30 && q[1] > 70 && q[1] < H - 70) {
       const k = 0.5 + 0.5 * Math.sin(performance.now() / 350);
       if (arTarget.kind === 'aster') { // the gold lines already show it: its name just above the group's highest star on screen (the middle is where the reticle sits)
