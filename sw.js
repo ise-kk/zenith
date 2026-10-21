@@ -1,12 +1,13 @@
 // Offline support: always try the network first (so updates show up right away),
 // fall back to the last cached copy when offline.
-const CACHE = 'zenith-v47';
+const CACHE = 'zenith-v48';
 const FONT = 'zenith-font-v4'; // fonts never change under the same name: cache first, kept across versions
 const SHELL = ['./', 'index.html', 'app.js', 'data.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 // also kept for offline first use (hills, campsites); a failure here must not block the install
 const EXTRA = ['topics.json', 'trains.json', 'tle.txt'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).then(() => Promise.all(EXTRA.map(u => c.add(u).catch(() => {}))))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('zenith-') && k !== CACHE && k !== FONT).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+let slowUntil = 0; // v48: a weak signal was seen recently
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
@@ -14,8 +15,18 @@ self.addEventListener('fetch', e => {
     e.respondWith(caches.open(FONT).then(c => c.match(e.request).then(hit => hit || fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; }))));
     return;
   }
-  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => {
+  // network first, but never wait long: with a weak signal (hills, campsites, crowded viewing spots) the saved copy
+  // is shown after 3 s and the network answer still refreshes the saved copy for next time (v48)
+  const net = fetch(e.request, { cache: 'no-cache' }).then(r => {
     if (r.ok) { const cp = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); }
     return r;
-  }).catch(() => caches.match(e.request, { ignoreSearch: true })));
+  });
+  e.waitUntil(net.catch(() => {}));
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => {
+    if (!hit) return net; // nothing saved yet: wait for the network as before
+    // once one answer was slow, the next ones in the same minute come straight from the saved copy (a page loads several files)
+    const wait = Date.now() < slowUntil ? 0 : 3000;
+    let done = false; const answer = net.catch(() => hit).finally(() => { done = true; });
+    return Promise.race([answer, new Promise(res => setTimeout(() => { if (!done) slowUntil = Date.now() + 60e3; res(hit); }, wait))]);
+  }));
 });
