@@ -1,7 +1,7 @@
 {
-  "name": "Zenith 今夜の空",
+  "name": "Zenith — 今夜の空",
   "short_name": "Zenith",
-  "description": "観測地から見上げた今夜の空。ISS・天宮・人工衛星の通過予報と流星群の見ごろ。",
+  "description": "いまの場所から見える星空を星図で。今夜の見どころ、ISS・流星群の時刻、スマホをかざして星の名前、撮った写真にも星の名前を重ねられます。無料・広告なし。",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
