@@ -10,6 +10,7 @@ import { almanac, nextEclipses, moonAt } from './almanac.js';
 import { t, JA, LANG, LANGS, setLang, TZ, LOCALE, dir, dir8, magT, magWord, lightTime } from './i18n.js';
 import { createHero } from './hero.js';
 import { fs, setTextStep, textStep, STEP_KEYS } from './textsize.js';
+import { initViewing } from './viewing.js'; // v48 観望会モード (removable: see the file)
 import { createTour } from './tour.js';
 import { conName, starLabel, starName, starAlt, messierShort, planetName, showerShort, mtype, MESSIER_EN } from './names.js';
 const MESSIER_EN_OF = (m) => MESSIER_EN[m[0]] || '';
@@ -81,14 +82,15 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 const cv = $('sky'), ctx = cv.getContext('2d');
 let W = 0, H = 0, R = 0, CX = 0, CY = 0, DPR = 1, R0 = 0, CY0 = 0;
 let hero = null; // tonight's highlight (created near the end)
-let RB = 0, CYB = 0, heroClip = 0; // RB/CYB: the sky circle before tonight's highlight moves it (v42)
+let RB = 0, CYB = 0, heroClip = 0, popExtra = 0, popOn = false; // popExtra: v48 canvas grown below the stage while the highlight zooms // RB/CYB: the sky circle before tonight's highlight moves it (v42)
 function resize() {
   const box = cv.getBoundingClientRect(); // the canvas may leave room for the tool row below it (phones)
   if (!box.width || !box.height) return;
   DPR = Math.min(devicePixelRatio || 1, 2);
   W = box.width; H = box.height;
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-  R0 = Math.min(W, H) / 2 - (Math.min(W, H) < 600 ? 26 : 34); CY0 = H / 2;
+  const Hl = H - popExtra; // the layout always uses the normal box, so growing the canvas never moves the sky
+  R0 = Math.min(W, Hl) / 2 - (Math.min(W, Hl) < 600 ? 26 : 34); CY0 = Hl / 2;
   R = R0; CX = W / 2; CY = CY0; RB = R; CYB = CY;
 }
 addEventListener('resize', () => { resize(); });
@@ -165,6 +167,12 @@ function draw() {
   const hc = heroClip;
   if (hc > 0) { ctx.save(); ctx.beginPath(); ctx.rect(0, hc, W, H - hc); ctx.clip(); }
 
+  // v48: a soft shadow under the disc while it comes forward over the rows below
+  if (popOn && R > RB * 1.02) {
+    const a = Math.min(1, (R / RB - 1) / 0.4);
+    ctx.save(); ctx.shadowColor = `rgba(0,0,0,${0.85 * a})`; ctx.shadowBlur = 28 * a; ctx.shadowOffsetY = 6 * a;
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.fillStyle = '#05070c'; ctx.fill(); ctx.restore();
+  }
   // dome
   ctx.save();
   ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.clip();
@@ -1267,6 +1275,19 @@ $('lp-skies').addEventListener('click', e => {
   const b = e.target.closest('[data-sky]'); if (!b) return;
   skySel.value = b.dataset.sky; skySel.dispatchEvent(new Event('change')); renderLoc();
 });
+// v48: while tonight's highlight zooms in (phones), let the round sky come forward over the rows under it
+// (tool row, the 次 line, the time bar); the tabs stay. The canvas grows, the layout does not.
+function setPop(on) {
+  if (!PHONE.matches) on = false;
+  if (on === popOn) return; popOn = on;
+  const stage = cv.parentElement;
+  if (on) {
+    const sr = stage.getBoundingClientRect(), tabs = $('tabs').getBoundingClientRect(), cr = cv.getBoundingClientRect();
+    const h = Math.max(cr.height, tabs.top - sr.top);
+    popExtra = h - cr.height; cv.style.height = h + 'px'; stage.classList.add('hero-pop'); document.body.classList.add('hero-pop');
+  } else { popExtra = 0; cv.style.height = ''; stage.classList.remove('hero-pop'); document.body.classList.remove('hero-pop'); }
+  resize();
+}
 // ---------- first-run guide (v43) ----------
 const tour = createTour({ t, store });
 const skyRect = () => { const b = cv.getBoundingClientRect(); return R > 0 ? { left: b.left + CX - R, top: b.top + CY - R, width: 2 * R, height: 2 * R } : null; };
@@ -1310,6 +1331,7 @@ window.__zen.tour = tour;
 // ---------- tonight's highlight (v42) ----------
 hero = createHero({
   $, st, t, JA, esc, dir, dir8, hm, planetName, lightTime, store, DATA, SKIES, moonPenalty, ar,
+  setPop,
   isSkyPage: () => (!PHONE.matches || page === 'sky') && tour.seen('home') && !tour.active(), // the first-run guide goes first
   onGo: (o) => { if (!st.live) $('now').click(); $('t-ar').click(); setTimeout(() => ar.setTarget(o), 0); },
 });
@@ -1328,6 +1350,7 @@ const motionRow = $('more-motion');
 function renderMotion() { $('more-motion-v').textContent = t(store.get('hero.motion', true) ? 'heroOn' : 'heroOff'); }
 motionRow.addEventListener('click', () => { store.set('hero.motion', !store.get('hero.motion', true)); renderMotion(); });
 renderMotion();
+initViewing({ $, store, t }); // v48 観望会モード
 function boot() {
   resize();
   loadStoredTLE();

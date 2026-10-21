@@ -216,6 +216,8 @@ export function createHero(deps) {
     show(box, s === 'intro' || s === 'held' || s === 'out');
     show(chip, s === 'chip' || s === 'out');
     if (s === 'chip') { chip.style.opacity = 1; }
+    // v48: while the sky zooms in it may spill over the rows below it (app.js grows the canvas); back in place for the chip
+    if (deps.setPop) deps.setPop(s === 'intro' || s === 'held' || s === 'out');
   }
   // ---- called by app.js ----
   function update(key, ctx) {
@@ -275,10 +277,20 @@ export function createHero(deps) {
     const g = curTarget();
     const canZoom = motion() && g && g.alt >= 5;
     if (canZoom) {
-      const z = ZOOM, rr = RB * Math.tan((90 - g.alt) * D2R / 2);
+      const rr = RB * Math.tan((90 - g.alt) * D2R / 2);
       const px = CXB - rr * Math.sin(g.az * D2R), py = CYB - rr * Math.cos(g.az * D2R); // target at the base circle
       const qx = k1 * px + b1x, qy = k1 * py + b1y;                                       // ... under the card
-      k = z * k1; bx = qx * (1 - z) + z * b1x; by = qy * (1 - z) + z * b1y;
+      // v48: zoom about the target, then slide the disc down so its round top edge shows just under the card
+      // (the disc then spills over the rows below, drawn on top of them = it "comes forward"). The target stays
+      // on screen; if it would not, zoom a little less.
+      const want = textBottom + 18;
+      for (let z = ZOOM; z >= 1.2 - 1e-9; z -= 0.05) {
+        k = z * k1; bx = qx * (1 - z) + z * b1x; by = qy * (1 - z) + z * b1y;
+        const top = k * (CYB - RB) + by;
+        const dy = Math.max(0, Math.min(want - top, H - 56 - qy));
+        by += dy;
+        if (top + dy >= want - 1) break;
+      }
     }
     const u = f.u;
     const K = 1 + (k - 1) * u, BX = bx * u, BY = by * u;

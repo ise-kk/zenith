@@ -1,4 +1,4 @@
-<title>Zenith</title>
+<title>Zenith — 今夜の空</title>
 <style>
 /* Fonts are served from this site (subset to the characters the app uses; SIL OFL 1.1, see fonts/OFL-*.txt).
    Nothing is fetched from other servers. Missing characters fall back to the system font. */
@@ -70,6 +70,8 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;he
 .hero-chip{position:absolute;z-index:3;left:12px;top:8px;font-size:13.5px;color:var(--ink);border:1px solid rgba(242,196,109,.45);background:rgba(242,196,109,.08);border-radius:999px;padding:6px 14px;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hero-chip b{color:var(--gold);font-weight:500;margin-right:8px}
 .stage.hero-on .stage-meta{visibility:hidden}
+.stage.hero-pop{overflow:visible;z-index:30}.stage.hero-pop #sky{z-index:3}.stage.hero-pop .stage-tools{visibility:hidden}
+.infobar,.timebar{transition:opacity .4s}body.hero-pop .infobar,body.hero-pop .timebar{opacity:.18}
 @media (min-width:981px){.hero,.hero-chip{left:22px;top:18px}.hero h2{font-size:22px}}
 #sky-state{font-family:var(--display);font-size:22px}
 .legend{position:absolute;left:22px;bottom:14px;display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--muted);pointer-events:none}
@@ -436,6 +438,13 @@ body.ar-on #tip{display:none}
 .more-list>li+li{border-top:1px solid var(--line)}
 .more-row{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:12px 14px;font-size:calc(14.5px*var(--tb,1));color:var(--ink);text-align:left;cursor:pointer;list-style:none}
 .more-row::-webkit-details-marker{display:none}
+/* v48 viewing (観望会モード, src/viewing.js): red over everything. Remove this block with the file. */
+.more-sub{display:block;margin-top:2px;font-style:normal;font-size:calc(11.5px*var(--tb,1));color:var(--muted)}
+.vw-veil{position:fixed;inset:0;pointer-events:none;z-index:2147483000;display:none}
+html.viewing .vw-veil{display:block}
+.vw-a{background:#808080;mix-blend-mode:saturation}
+.vw-b{background:#666;mix-blend-mode:color-dodge;z-index:2147483001}
+.vw-c{background:#c00000;mix-blend-mode:multiply;z-index:2147483002}
 .more-row>span{flex:1}
 .more-row small{color:var(--muted);font-size:calc(12px*var(--tb,1));text-align:right;max-width:58%}
 .more-row i{color:var(--faint);font-style:normal;transition:transform .2s}
@@ -676,6 +685,7 @@ details[open]>.more-row i{transform:rotate(90deg)}
         <li><button type="button" class="more-row" data-loc><span data-t="skyDark">空の暗さ</span><small id="more-sky"></small><i>›</i></button></li>
         <li><button type="button" class="more-row" id="more-text"><span data-t="textSize">文字の大きさ</span><small id="more-text-v"></small></button></li>
         <li><button type="button" class="more-row" id="more-motion"><span data-t="heroMotion">ズーム演出</span><small id="more-motion-v"></small></button></li>
+        <li><button type="button" class="more-row" id="more-view" aria-pressed="false"><span><span data-t="viewMode">観望会モード</span><em class="more-sub" id="more-view-s"></em></span><small id="more-view-v"></small></button></li>
         <li><label class="more-row langsel"><span data-t="language">言語</span><select id="lang"></select></label></li>
       </ul>
       <h3 class="more-sec" data-t="howto">使い方</h3>

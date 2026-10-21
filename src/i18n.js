@@ -245,6 +245,7 @@ const D = {
   heroPairName: { ja: (a, b) => `${a}と${b}`, en: (a, b) => `${a} & ${b}` },
   textSize: { ja: '文字の大きさ', en: 'Text size' }, tsStd: { ja: '標準', en: 'Standard' }, tsLarge: { ja: '大', en: 'Large' }, tsXLarge: { ja: '特大', en: 'Extra large' },
   heroMotion: { ja: 'ズーム演出', en: 'Zoom-in effect' }, heroOn: { ja: 'オン', en: 'On' }, heroOff: { ja: 'オフ', en: 'Off' },
+  viewMode: { ja: '観望会モード', en: 'Stargazing mode' }, viewSub: { ja: '画面全体を暗い赤に', en: 'Whole screen in dim red' }, viewSubWake: { ja: '画面全体を暗い赤に・画面を消さない', en: 'Whole screen in dim red, screen stays on' },
   heroAria: { ja: '今夜の主役', en: "Tonight's highlight" },
   // v43 first-run guide
   tourNext: { ja: '次へ', en: 'Next' }, tourDone: { ja: 'はじめる', en: 'Start' }, tourSkip: { ja: 'スキップ', en: 'Skip' },
