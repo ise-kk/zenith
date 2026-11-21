@@ -8,7 +8,9 @@ const HOUR = 3600e3, STEP = 10 * 60e3;
 const MIN_ALT = 12; // a target lower than this is not "up" (houses, trees, haze)
 
 // order of importance on one night: one-off, time-limited things first (v42 design §2)
-const RANK = { eclipse: 0, shower: 1, moonPlanet: 2, moonStar: 2, planets: 2, elong: 3, opp: 3 };
+const RANK = { eclipse: 0, shower: 1, moonPlanet: 2, moonStar: 2, planets: 2, elong: 3, opp: 3, after: 4 };
+// v49: a planet pair already past its closest approach is still worth a look on an empty night, but anything else comes first
+const rankOf = (ev) => RANK[ev.kind === 'lunar' || ev.kind === 'solar' ? 'eclipse' : ev.kind === 'planets' && ev.after ? 'after' : ev.kind];
 
 // where the event's object is at time d: { alt, az } (a shower: its radiant)
 function targetAt(ev, d, obs) {
@@ -57,10 +59,10 @@ export function pickHero(now, ctx) {
   if (ctx.ecl && ctx.ecl.solar && ctx.dayOf(ctx.ecl.solar.t) === ctx.dayOf(now.getTime()) && Math.abs(ctx.ecl.solar.t - now) < 5 * HOUR)
     list.push({ kind: 'solar', sub: ctx.ecl.solar.kind, t: ctx.ecl.solar.t, when: ctx.ecl.solar.t, alt: ctx.ecl.solar.alt, obsc: ctx.ecl.solar.obscuration });
   if (!list.length) return null;
-  list.sort((a, b) => ((RANK[a.kind === 'lunar' || a.kind === 'solar' ? 'eclipse' : a.kind]) - (RANK[b.kind === 'lunar' || b.kind === 'solar' ? 'eclipse' : b.kind])) || (a.when - b.when));
+  list.sort((a, b) => (rankOf(a) - rankOf(b)) || (a.when - b.when));
 
   for (const ev of list) {
-    const rank = RANK[ev.kind === 'lunar' || ev.kind === 'solar' ? 'eclipse' : ev.kind];
+    const rank = rankOf(ev);
     const minAlt = ev.kind === 'elong' ? 10 : MIN_ALT;
     const here = targetAt(ev, now, obs);
     const id = ev.kind + ':' + (ev.planet ? ev.planet.en : ev.star ? ev.star.id : ev.shower ? ev.shower.code : ev.a ? ev.a.en + ev.b.en : ev.sub || '') + ':' + ctx.key;
@@ -103,7 +105,7 @@ export function visibleStars(d, obs, lm, stars) {
 // ---------- wording ----------
 // Everything the card says, as plain strings. deps: { t, JA, dir, dir8, hm, planetName, lightTime, st, A, S, bodyAltAz }
 export function describe(p, deps) {
-  const { t, dir, dir8, hm, planetName, lightTime, st, JA } = deps;
+  const { t, dir, dir8, hm, mdS, planetName, lightTime, st, JA } = deps;
   const ev = p.ev, vis = p.vis;
   const clockOf = (d) => { let [h, m] = hm(d).split(':').map(Number); if (m >= 45) { h = (h + 1) % 24; m = 0; } return t('heroClock', h, m >= 15); };
   const alt5 = (a) => Math.round(a / 5) * 5;
@@ -131,7 +133,8 @@ export function describe(p, deps) {
       const b = ev.kind === 'planets' ? planetName(ev.b) : ev.kind === 'moonPlanet' ? planetName(ev.planet) : (JA ? ev.star.ja : ev.star.en);
       r.head = vis ? t('heroHeadPairVis', a, b, d16, alt5(p.alt)) : t('heroHeadPairLater', c, a, b, d16);
       const ct = clockOf(ev.t);
-      r.sub = t('heroSubPair', ct, a, b, ev.sep < 1 ? ev.sep.toFixed(1) : ev.sep.toFixed(0));
+      const sp = ev.sep < 1 ? ev.sep.toFixed(1) : ev.sep.toFixed(0);
+      r.sub = ev.after ? t('heroSubPairAfter', ct, a, b, sp, mdS(ev.peak)) : t('heroSubPair', ct, a, b, sp);
       if (ev.kind !== 'moonStar') { const pl = ev.kind === 'planets' ? ev.a : ev.planet; r.go = { kind: 'planet', body: pl.body, ja: pl.ja, en: pl.en }; }
       r.chipName = t('heroPairName', a, b); break;
     }

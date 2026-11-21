@@ -75,6 +75,7 @@ st.trainPasses = [];
 const hm = (d) => new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ }).format(d);
 const hms = (d) => new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: TZ }).format(d);
 const md = (d) => new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', { month: JA ? 'numeric' : 'short', day: 'numeric', weekday: 'short', timeZone: TZ }).format(d);
+const mdS = (d) => new Intl.DateTimeFormat(JA ? 'ja-JP' : 'en-GB', { month: JA ? 'numeric' : 'short', day: 'numeric', timeZone: TZ }).format(d); // v49: date without the weekday
 const mag = magT;
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -667,7 +668,7 @@ function renderTonight() {
   // other nights (v34): lead with that night's calendar event or brightest sight instead of station passes
   const calTonight = calForNight(nightKey(w.sunset.getTime()));
   if (!isTonight && (st.passFar || !nextF)) {
-    const c = calTonight.find(e => e.kind !== 'phase');
+    const c = calTonight.find(e => e.kind !== 'phase' && !e.after) || calTonight.find(e => e.kind !== 'phase'); // v49: a pair past its closest comes last
     head = c ? calTitle(c) : t('headQuiet', md(w.sunset));
   }
   $('headline').innerHTML = head;
@@ -788,7 +789,7 @@ function calTitle(e) {
     case 'elong': return t('elongT', planetName(e.planet));
     case 'moonPlanet': return t('mpT', pt, planetName(e.planet));
     case 'moonStar': return t('msT', pt, JA ? e.star.ja : e.star.en);
-    case 'planets': return t('ppT', planetName(e.a), planetName(e.b));
+    case 'planets': return e.after ? t('ppAfterT', planetName(e.a), planetName(e.b), mdS(e.peak)) : t('ppT', planetName(e.a), planetName(e.b));
     case 'shower': return JA ? e.shower.ja : e.shower.en;
   }
   return '';
@@ -1330,7 +1331,7 @@ window.__zen.tour = tour;
 
 // ---------- tonight's highlight (v42) ----------
 hero = createHero({
-  $, st, t, JA, esc, dir, dir8, hm, planetName, lightTime, store, DATA, SKIES, moonPenalty, ar,
+  $, st, t, JA, esc, dir, dir8, hm, mdS, planetName, lightTime, store, DATA, SKIES, moonPenalty, ar,
   setPop,
   isSkyPage: () => (!PHONE.matches || page === 'sky') && tour.seen('home') && !tour.active(), // the first-run guide goes first
   onGo: (o) => { if (!st.live) $('now').click(); $('t-ar').click(); setTimeout(() => ar.setTarget(o), 0); },

@@ -23,6 +23,20 @@ function sep(a, b) { // angular separation of two alt/az directions, degrees
 }
 const sunAlt = (d, obs) => bodyAltAz(A.Body.Sun, d, obs).alt;
 
+// v49: time of the closest approach of two planets nearest to `d` (geocentric; walks downhill in 6-hour steps, max ±40 days)
+function pairPeak(a, b, d) {
+  const gap = (ms) => { const t = A.MakeTime(new Date(ms)); return A.AngleBetween(A.GeoVector(a, t, true), A.GeoVector(b, t, true)); };
+  const STEP6 = 6 * HOUR;
+  let ms = d.getTime(), g = gap(ms);
+  const dir = gap(ms + STEP6) < g ? 1 : gap(ms - STEP6) < g ? -1 : 0;
+  for (let n = 0; dir && n < 160; n++) {
+    const g2 = gap(ms + dir * STEP6);
+    if (g2 >= g) break;
+    ms += dir * STEP6; g = g2;
+  }
+  return new Date(ms);
+}
+
 // moon phase angle at a time (0 new, 90 first quarter, 180 full, 270 last quarter) and lit fraction
 export function moonAt(d) {
   return { phase: A.MoonPhase(A.MakeTime(d)), frac: A.Illumination(A.Body.Moon, A.MakeTime(d)).phase_fraction };
@@ -91,6 +105,16 @@ export async function almanac(from, days, obs, lm, evening, yieldFn = () => Prom
       out.push(v);
     }
     if (k % 5 === 4) await yieldFn();
+  }
+  // v49: the searched nights may not hold the true closest approach of a pair.
+  //   already past (more than 2 days ago): keep it, marked `after` (shown as "closest on <peak>", ranked last as tonight's highlight)
+  //   after the last searched night: drop it (its edge night is not the closest; it is listed once the real night is in range)
+  for (let i = out.length - 1; i >= 0; i--) {
+    const v = out[i];
+    if (v.kind !== 'planets') continue;
+    v.peak = pairPeak(v.a.body, v.b.body, v.t);
+    if (v.peak - v.t > 2 * DAY) out.splice(i, 1);
+    else if (v.t - v.peak > 2 * DAY) v.after = true;
   }
 
   // 5. Meteor shower peaks, with the best time on that night and the expected rate
